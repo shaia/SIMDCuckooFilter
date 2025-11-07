@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Run tests
+        run: |
+          go mod download
+          go test -v ./...
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+
+          # Build for multiple platforms
+          GOOS=linux GOARCH=amd64 go build \
+            -o dist/simcuckoofilter-linux-amd64 \
+            -ldflags="-s -w" ./...
+          GOOS=linux GOARCH=arm64 go build \
+            -o dist/simcuckoofilter-linux-arm64 \
+            -ldflags="-s -w" ./...
+          GOOS=darwin GOARCH=amd64 go build \
+            -o dist/simcuckoofilter-darwin-amd64 \
+            -ldflags="-s -w" ./...
+          GOOS=darwin GOARCH=arm64 go build \
+            -o dist/simcuckoofilter-darwin-arm64 \
+            -ldflags="-s -w" ./...
+          GOOS=windows GOARCH=amd64 go build \
+            -o dist/simcuckoofilter-windows-amd64.exe \
+            -ldflags="-s -w" ./...
+          GOOS=windows GOARCH=arm64 go build \
+            -o dist/simcuckoofilter-windows-arm64.exe \
+            -ldflags="-s -w" ./...
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "## What's Changed" > CHANGELOG.md
+          git log --pretty=format:"* %s (%h)" \
+            $(git describe --tags --abbrev=0 HEAD^)..HEAD \
+            >> CHANGELOG.md || echo "* Initial release" >> CHANGELOG.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: Publish Go Package
+    runs-on: ubuntu-latest
+    needs: release
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Publish to Go package registry
+        run: |
+          GOPROXY=proxy.golang.org \
+            go list -m \
+            github.com/${{ github.repository }}@${{ github.ref_name }} \
+            || true
+        env:
+          GOPROXY: proxy.golang.org
