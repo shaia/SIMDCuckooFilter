@@ -29,29 +29,10 @@ jobs:
           go mod download
           go test -v ./...
 
-      - name: Build binaries
+      - name: Build and verify
         run: |
-          mkdir -p dist
-
-          # Build for multiple platforms
-          GOOS=linux GOARCH=amd64 go build \
-            -o dist/simcuckoofilter-linux-amd64 \
-            -ldflags="-s -w" ./...
-          GOOS=linux GOARCH=arm64 go build \
-            -o dist/simcuckoofilter-linux-arm64 \
-            -ldflags="-s -w" ./...
-          GOOS=darwin GOARCH=amd64 go build \
-            -o dist/simcuckoofilter-darwin-amd64 \
-            -ldflags="-s -w" ./...
-          GOOS=darwin GOARCH=arm64 go build \
-            -o dist/simcuckoofilter-darwin-arm64 \
-            -ldflags="-s -w" ./...
-          GOOS=windows GOARCH=amd64 go build \
-            -o dist/simcuckoofilter-windows-amd64.exe \
-            -ldflags="-s -w" ./...
-          GOOS=windows GOARCH=arm64 go build \
-            -o dist/simcuckoofilter-windows-arm64.exe \
-            -ldflags="-s -w" ./...
+          # Verify the package builds successfully
+          go build -v ./...
 
       - name: Generate changelog
         id: changelog
@@ -67,7 +48,6 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
           body_path: CHANGELOG.md
           draft: false
           prerelease: false
@@ -90,8 +70,7 @@ jobs:
 
       - name: Publish to Go package registry
         run: |
-          GOPROXY=proxy.golang.org \
-            go list -m \
+          go list -m \
             github.com/${{ github.repository }}@${{ github.ref_name }} \
             || true
         env:
