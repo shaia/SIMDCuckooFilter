@@ -57,12 +57,15 @@ jobs:
         id: changelog
         run: |
           echo "## What's Changed" > CHANGELOG.md
-          git log --pretty=format:"* %s (%h)" \
-            $(git describe --tags --abbrev=0 HEAD^)..HEAD \
-            >> CHANGELOG.md || echo "* Initial release" >> CHANGELOG.md
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            git log --pretty=format:"* %s (%h)" "${PREV_TAG}..HEAD" >> CHANGELOG.md
+          else
+            echo "* Initial release" >> CHANGELOG.md
+          fi
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           body_path: CHANGELOG.md
