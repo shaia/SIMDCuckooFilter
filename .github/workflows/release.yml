@@ -68,8 +68,10 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Publish to Go package registry
+      - name: Request module from Go proxy
         run: |
+          # Trigger proxy.golang.org to fetch and cache the module
+          # This makes the module discoverable via 'go get'
           go list -m \
             github.com/${{ github.repository }}@${{ github.ref_name }} \
             || true
