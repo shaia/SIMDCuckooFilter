@@ -7,8 +7,8 @@ This directory contains an optimized ARM64 implementation of CRC32C (Castagnoli)
 ## Files
 
 - **[batch_arm64.go](batch_arm64.go)** - ARM64-specific batch processor
-- **[batch_simd_wrapper_arm64.go](batch_simd_wrapper_arm64.go)** - Go wrapper for assembly function
-- **[batch_simd_arm64.s](batch_simd_arm64.s)** - ARMv8 assembly implementation using hardware CRC32C instructions
+- **[batch_arm64_asm.go](batch_arm64_asm.go)** - Go wrapper for assembly function
+- **[batch_arm64.s](batch_arm64.s)** - ARMv8 assembly implementation using hardware CRC32C instructions
 - **[crc32_arm64_test.go](crc32_arm64_test.go)** - Comprehensive tests for ARM64 implementation
 
 ## Hardware Instructions Used
