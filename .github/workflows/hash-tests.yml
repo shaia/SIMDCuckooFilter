@@ -1,0 +1,203 @@
+name: Hash Implementation Tests
+
+on:
+  push:
+    paths:
+      - 'internal/hash/**'
+      - '.github/workflows/hash-tests.yml'
+  pull_request:
+    paths:
+      - 'internal/hash/**'
+  workflow_dispatch:
+
+jobs:
+  test-hash-implementations:
+    name: Test Hash - ${{ matrix.hash }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]  # macos-14 is ARM64
+        hash: [crc32, fnv, xxhash]
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+          - os: macos-14
+            arch: arm64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.x'
+        cache: true
+
+    - name: Display system info
+      run: |
+        echo "OS: ${{ matrix.os }}"
+        echo "Architecture: $(uname -m)"
+        echo "Go version: $(go version)"
+        echo "GOARCH: $(go env GOARCH)"
+
+    - name: Test ${{ matrix.hash }}
+      run: |
+        echo "Testing ${{ matrix.hash }} hash implementation..."
+        go test -v -race ./internal/hash/${{ matrix.hash }}/...
+
+    - name: Run benchmarks for ${{ matrix.hash }}
+      run: |
+        echo "Running benchmarks for ${{ matrix.hash }}..."
+        go test -bench=. -benchmem -run=^$ ./internal/hash/${{ matrix.hash }}/...
+
+  test-crc32-hardware:
+    name: CRC32 Hardware Tests - ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: AMD64 SSE4.2
+            test_pattern: TestSIMD
+          - os: macos-14
+            platform: ARM64 CRC32C
+            test_pattern: TestARM64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.x'
+
+    - name: Test CRC32 hardware acceleration
+      run: |
+        echo "Testing ${{ matrix.platform }} CRC32 implementation..."
+        go test -v ./internal/hash/crc32 -run "${{ matrix.test_pattern }}"
+
+    - name: Verify hardware vs software consistency
+      run: |
+        echo "Verifying CRC32 consistency..."
+        go test -v ./internal/hash/crc32 -run "Consistency|Correctness"
+
+  test-integration:
+    name: Hash Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.x'
+
+    - name: Run integration tests
+      run: |
+        echo "Running hash integration tests..."
+        go test -v -race ./internal/hash -run "TestAllHashImplementations|TestHashImplementations"
+
+    - name: Test hash distribution
+      run: |
+        echo "Testing hash distribution quality..."
+        go test -v ./internal/hash -run TestHashDistribution
+
+    - name: Test hash consistency
+      run: |
+        echo "Testing cross-implementation consistency..."
+        go test -v ./internal/hash -run TestHashImplementationsConsistency
+
+  verify-builds:
+    name: Verify Builds - ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.x'
+
+    - name: Build hash packages
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        echo "Building for ${{ matrix.goos }}/${{ matrix.goarch }}..."
+        go build -v ./internal/hash/crc32/...
+        go build -v ./internal/hash/fnv/...
+        go build -v ./internal/hash/xxhash/...
+
+  coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.x'
+
+    - name: Run tests with coverage
+      run: |
+        go test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/hash/...
+
+    - name: Display coverage
+      run: |
+        go tool cover -func=coverage.out
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.out
+        flags: hash
+        name: hash-coverage
+
+  validate-assembly:
+    name: Validate Assembly Code
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.x'
+
+    - name: Validate AMD64 assembly
+      run: |
+        echo "Validating AMD64 assembly syntax..."
+        GOARCH=amd64 go build -v ./internal/hash/crc32/...
+        GOARCH=amd64 go build -v ./internal/hash/xxhash/...
+
+    - name: Validate ARM64 assembly
+      run: |
+        echo "Validating ARM64 assembly syntax..."
+        GOARCH=arm64 go build -v ./internal/hash/crc32/...
+        GOARCH=arm64 go build -v ./internal/hash/xxhash/...
+
+    - name: Check for assembly errors
+      run: |
+        echo "Checking for common assembly errors..."
+        # Verify all .s files compile
+        find ./internal/hash -name "*.s" -type f | while read file; do
+          echo "Checking $file..."
+          dir=$(dirname "$file")
+          (cd "$dir" && go build -v .) || exit 1
+        done
