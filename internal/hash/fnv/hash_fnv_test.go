@@ -1,13 +1,13 @@
-package crc32hash
+package fnv
 
 import (
 	"fmt"
-	"hash/crc32"
+	"hash/fnv"
 	"testing"
 )
 
-// TestCRC32HashConsistency verifies that hash function produces consistent results
-func TestCRC32HashConsistency(t *testing.T) {
+// TestFNVHashConsistency verifies that hash function produces consistent results
+func TestFNVHashConsistency(t *testing.T) {
 	testCases := [][]byte{
 		[]byte(""),
 		[]byte("a"),
@@ -19,8 +19,7 @@ func TestCRC32HashConsistency(t *testing.T) {
 		make([]byte, 1000),
 	}
 
-	table := crc32.MakeTable(crc32.Castagnoli)
-	h := NewCRC32Hash(table, 8, nil)
+	h := NewFNVHash(8, nil)
 	numBuckets := uint(1024)
 
 	for i, tc := range testCases {
@@ -35,8 +34,8 @@ func TestCRC32HashConsistency(t *testing.T) {
 	}
 }
 
-// TestCRC32HashCorrectness verifies CRC32C hash against stdlib implementation
-func TestCRC32HashCorrectness(t *testing.T) {
+// TestFNVHashCorrectness verifies FNV hash against stdlib implementation
+func TestFNVHashCorrectness(t *testing.T) {
 	testCases := []struct {
 		name string
 		data []byte
@@ -50,21 +49,22 @@ func TestCRC32HashCorrectness(t *testing.T) {
 		{"special chars", []byte("!@#$%^&*()")},
 		{"unicode", []byte("héllo wörld")},
 		{"long", make([]byte, 1000)},
-		{"zeros", make([]byte, 100)},
 	}
 
-	table := crc32.MakeTable(crc32.Castagnoli)
-	h := NewCRC32Hash(table, 8, nil)
+	h := NewFNVHash(8, nil)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Compute expected hash using stdlib
-			expectedHash := crc32.Checksum(tc.data, table)
+			hasher := fnv.New64a()
+			hasher.Write(tc.data)
+			expectedHash := hasher.Sum64()
 
 			// Compute using our implementation
 			i1, _, fp := h.GetIndices(tc.data, 1000000)
 
 			// Verify the indices are derived from the same hash
+			// (We can't directly compare internal hash values, but we can verify consistency)
 			if fp == 0 {
 				t.Errorf("%s: fingerprint is zero (should never happen)", tc.name)
 			}
@@ -74,25 +74,24 @@ func TestCRC32HashCorrectness(t *testing.T) {
 				t.Errorf("%s: index out of range: %d", tc.name, i1)
 			}
 
-			// Verify the hash value matches stdlib
-			if uint32(expectedHash)%uint32(1000000) != uint32(i1) {
+			// Verify the hash value matches stdlib (indirect verification)
+			if expectedHash%1000000 != uint64(i1) {
 				t.Errorf("%s: index doesn't match expected hash: got %d, expected %d",
-					tc.name, i1, uint32(expectedHash)%1000000)
+					tc.name, i1, expectedHash%1000000)
 			}
 		})
 	}
 }
 
-// TestCRC32FingerprintBits tests different fingerprint bit sizes
-func TestCRC32FingerprintBits(t *testing.T) {
+// TestFNVFingerprintBits tests different fingerprint bit sizes
+func TestFNVFingerprintBits(t *testing.T) {
 	// Fingerprints are stored as bytes, so only 1-8 bits are supported
 	testCases := []uint{4, 8}
 	testData := []byte("test data")
-	table := crc32.MakeTable(crc32.Castagnoli)
 
 	for _, bits := range testCases {
 		t.Run(fmt.Sprintf("%dbits", bits), func(t *testing.T) {
-			h := NewCRC32Hash(table, bits, nil)
+			h := NewFNVHash(bits, nil)
 			_, _, fp := h.GetIndices(testData, 1024)
 
 			// Verify fingerprint is never zero
@@ -109,10 +108,9 @@ func TestCRC32FingerprintBits(t *testing.T) {
 	}
 }
 
-// TestCRC32ZeroFingerprint ensures fingerprint is never zero
-func TestCRC32ZeroFingerprint(t *testing.T) {
-	table := crc32.MakeTable(crc32.Castagnoli)
-	h := NewCRC32Hash(table, 8, nil)
+// TestFNVZeroFingerprint ensures fingerprint is never zero
+func TestFNVZeroFingerprint(t *testing.T) {
+	h := NewFNVHash(8, nil)
 
 	// Test with various inputs to ensure fingerprint is never 0
 	testInputs := [][]byte{
@@ -135,10 +133,9 @@ func TestCRC32ZeroFingerprint(t *testing.T) {
 	}
 }
 
-// TestCRC32GetAltIndex verifies alternative index calculation
-func TestCRC32GetAltIndex(t *testing.T) {
-	table := crc32.MakeTable(crc32.Castagnoli)
-	h := NewCRC32Hash(table, 8, nil)
+// TestFNVGetAltIndex verifies alternative index calculation
+func TestFNVGetAltIndex(t *testing.T) {
+	h := NewFNVHash(8, nil)
 	numBuckets := uint(1024)
 
 	testCases := []struct {
@@ -173,8 +170,8 @@ func TestCRC32GetAltIndex(t *testing.T) {
 	}
 }
 
-// TestCRC32BatchProcessing tests batch processing functionality
-func TestCRC32BatchProcessing(t *testing.T) {
+// TestFNVBatchProcessing tests batch processing functionality
+func TestFNVBatchProcessing(t *testing.T) {
 	items := [][]byte{
 		[]byte("item1"),
 		[]byte("item2"),
@@ -183,8 +180,7 @@ func TestCRC32BatchProcessing(t *testing.T) {
 		[]byte("item5"),
 	}
 
-	table := crc32.MakeTable(crc32.Castagnoli)
-	h := NewCRC32Hash(table, 8, nil)
+	h := NewFNVHash(8, nil)
 	numBuckets := uint(1024)
 
 	// Get individual results
@@ -212,10 +208,9 @@ func TestCRC32BatchProcessing(t *testing.T) {
 	}
 }
 
-// TestCRC32EmptyInput tests behavior with empty input
-func TestCRC32EmptyInput(t *testing.T) {
-	table := crc32.MakeTable(crc32.Castagnoli)
-	h := NewCRC32Hash(table, 8, nil)
+// TestFNVEmptyInput tests behavior with empty input
+func TestFNVEmptyInput(t *testing.T) {
+	h := NewFNVHash(8, nil)
 	numBuckets := uint(1024)
 
 	i1, i2, fp := h.GetIndices([]byte(""), numBuckets)
@@ -234,10 +229,9 @@ func TestCRC32EmptyInput(t *testing.T) {
 	}
 }
 
-// TestCRC32LargeInput tests behavior with large input
-func TestCRC32LargeInput(t *testing.T) {
-	table := crc32.MakeTable(crc32.Castagnoli)
-	h := NewCRC32Hash(table, 8, nil)
+// TestFNVLargeInput tests behavior with large input
+func TestFNVLargeInput(t *testing.T) {
+	h := NewFNVHash(8, nil)
 	numBuckets := uint(1024)
 
 	// Create a large input (10KB)
@@ -268,10 +262,9 @@ func TestCRC32LargeInput(t *testing.T) {
 	}
 }
 
-// TestCRC32VariousBucketSizes tests with different bucket counts
-func TestCRC32VariousBucketSizes(t *testing.T) {
-	table := crc32.MakeTable(crc32.Castagnoli)
-	h := NewCRC32Hash(table, 8, nil)
+// TestFNVVariousBucketSizes tests with different bucket counts
+func TestFNVVariousBucketSizes(t *testing.T) {
+	h := NewFNVHash(8, nil)
 	testData := []byte("test data")
 
 	bucketSizes := []uint{1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096}
@@ -291,10 +284,9 @@ func TestCRC32VariousBucketSizes(t *testing.T) {
 	}
 }
 
-// TestCRC32DifferentInputs verifies that different inputs produce different hashes
-func TestCRC32DifferentInputs(t *testing.T) {
-	table := crc32.MakeTable(crc32.Castagnoli)
-	h := NewCRC32Hash(table, 8, nil)
+// TestFNVDifferentInputs verifies that different inputs produce different hashes
+func TestFNVDifferentInputs(t *testing.T) {
+	h := NewFNVHash(8, nil)
 	numBuckets := uint(1024)
 
 	inputs := [][]byte{
@@ -321,68 +313,9 @@ func TestCRC32DifferentInputs(t *testing.T) {
 	}
 }
 
-// TestCRC32Tables tests with different CRC32 polynomial tables
-func TestCRC32Tables(t *testing.T) {
-	testData := []byte("test data")
-	numBuckets := uint(1024)
-
-	tables := []struct {
-		name  string
-		table *crc32.Table
-	}{
-		{"Castagnoli", crc32.MakeTable(crc32.Castagnoli)},
-		{"IEEE", crc32.MakeTable(crc32.IEEE)},
-		{"Koopman", crc32.MakeTable(crc32.Koopman)},
-	}
-
-	for _, tc := range tables {
-		t.Run(tc.name, func(t *testing.T) {
-			h := NewCRC32Hash(tc.table, 8, nil)
-			i1, i2, fp := h.GetIndices(testData, numBuckets)
-
-			if i1 >= numBuckets {
-				t.Errorf("i1 out of range: %d", i1)
-			}
-			if i2 >= numBuckets {
-				t.Errorf("i2 out of range: %d", i2)
-			}
-			if fp == 0 {
-				t.Error("fingerprint is zero")
-			}
-		})
-	}
-}
-
-// TestCRC32FingerprintFunction tests the fingerprint extraction
-func TestCRC32FingerprintFunction(t *testing.T) {
-	testCases := []struct {
-		hashVal uint64
-		bits    uint
-		expect  byte
-	}{
-		{0x00, 8, 1},      // Zero should become 1
-		{0xFF, 8, 0xFF},   // All bits set
-		{0x80, 8, 0x80},   // High bit set
-		{0x01, 8, 0x01},   // Low bit set
-		{0x100, 8, 1},     // Overflow, low bits zero -> 1
-		{0x1234, 8, 0x34}, // Extract low 8 bits
-		{0x00, 4, 1},      // Zero with 4 bits -> 1
-		{0x0F, 4, 0x0F},   // Max 4-bit value
-	}
-
-	for _, tc := range testCases {
-		result := fingerprint(tc.hashVal, tc.bits)
-		if result != tc.expect {
-			t.Errorf("fingerprint(0x%x, %d) = 0x%x, want 0x%x",
-				tc.hashVal, tc.bits, result, tc.expect)
-		}
-	}
-}
-
-// BenchmarkCRC32Hash benchmarks single hash operation
-func BenchmarkCRC32Hash(b *testing.B) {
-	table := crc32.MakeTable(crc32.Castagnoli)
-	h := NewCRC32Hash(table, 8, nil)
+// BenchmarkFNVHash benchmarks single hash operation
+func BenchmarkFNVHash(b *testing.B) {
+	h := NewFNVHash(8, nil)
 	data := []byte("benchmark test data with reasonable length")
 	numBuckets := uint(1024)
 
@@ -393,15 +326,14 @@ func BenchmarkCRC32Hash(b *testing.B) {
 	}
 }
 
-// BenchmarkCRC32BatchHash benchmarks batch hash operations
-func BenchmarkCRC32BatchHash(b *testing.B) {
+// BenchmarkFNVBatchHash benchmarks batch hash operations
+func BenchmarkFNVBatchHash(b *testing.B) {
 	items := make([][]byte, 32)
 	for i := range items {
 		items[i] = []byte("benchmark test data")
 	}
 
-	table := crc32.MakeTable(crc32.Castagnoli)
-	h := NewCRC32Hash(table, 8, nil)
+	h := NewFNVHash(8, nil)
 	numBuckets := uint(1024)
 
 	b.ReportAllocs()
@@ -409,26 +341,4 @@ func BenchmarkCRC32BatchHash(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = h.GetIndicesBatch(items, numBuckets)
 	}
-}
-
-// BenchmarkCRC32vsStdlib compares our implementation with stdlib
-func BenchmarkCRC32vsStdlib(b *testing.B) {
-	data := []byte("benchmark test data")
-	table := crc32.MakeTable(crc32.Castagnoli)
-
-	b.Run("Stdlib", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			_ = crc32.Checksum(data, table)
-		}
-	})
-
-	b.Run("OurImplementation", func(b *testing.B) {
-		h := NewCRC32Hash(table, 8, nil)
-		numBuckets := uint(1024)
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			_, _, _ = h.GetIndices(data, numBuckets)
-		}
-	})
 }
