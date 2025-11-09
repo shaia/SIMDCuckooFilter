@@ -4,10 +4,11 @@
 #include "textflag.h"
 
 // func batchCRC32SIMD(items [][]byte, results []uint32)
-// Processes CRC32C checksums using SSE4.2 CRC32C instruction
+// Processes CRC32C (Castagnoli) checksums using SSE4.2 CRC32 instructions (CRC32Q/CRC32B)
+// These instructions compute the Castagnoli polynomial, matching hash/crc32.Castagnoli
 // items: ptr(0), len(8), cap(16) = 24 bytes
-// results: ptr(24), len(32), cap(40) = 12 bytes
-// Total frame size: 24 + 12 = 36 bytes (round up to 40 for alignment)
+// results: ptr(24), len(32), cap(40) = 24 bytes
+// Total frame size: 24 + 24 = 48 bytes
 TEXT ·batchCRC32SIMD(SB), NOSPLIT, $0-48
     MOVQ items_base+0(FP), SI      // SI = items slice base
     MOVQ items_len+8(FP), CX       // CX = items length
