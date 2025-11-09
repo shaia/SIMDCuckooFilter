@@ -54,8 +54,9 @@ func (p *BatchProcessor) ProcessBatch(items [][]byte, fingerprintBits, numBucket
 		return p.processBatchSIMD(items, fingerprintBits, numBuckets)
 	}
 
-	// For small batches, sequential processing is faster (avoids goroutine overhead)
-	if len(items) < 8 {
+	// For small-to-medium batches, sequential processing is faster
+	// Goroutine overhead is ~1-2µs per goroutine, which exceeds the benefit for small batches
+	if len(items) < 32 {
 		for i, item := range items {
 			hashVal := crc32.Checksum(item, p.table)
 			fp := fingerprint(uint64(hashVal), fingerprintBits)
@@ -68,10 +69,10 @@ func (p *BatchProcessor) ProcessBatch(items [][]byte, fingerprintBits, numBucket
 	}
 
 	// For larger batches, process in parallel
-	// CRC32 computation is fast, so we use larger chunk sizes to reduce overhead
+	// CRC32 computation is fast, so we use larger chunk sizes to amortize goroutine overhead
 	chunkSize := (len(items) + 3) / 4 // Process in 4 chunks
-	if chunkSize < 4 {
-		chunkSize = 4
+	if chunkSize < 8 {
+		chunkSize = 8 // Minimum chunk size to justify goroutine overhead
 	}
 
 	type chunk struct {
@@ -87,7 +88,8 @@ func (p *BatchProcessor) ProcessBatch(items [][]byte, fingerprintBits, numBucket
 	}
 
 	// Process chunks in parallel
-	done := make(chan struct{})
+	// Buffer the channel to avoid blocking goroutines waiting to send completion signal
+	done := make(chan struct{}, len(chunks))
 	for _, c := range chunks {
 		go func(start, end int) {
 			for i := start; i < end; i++ {
