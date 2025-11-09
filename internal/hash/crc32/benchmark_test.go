@@ -11,7 +11,7 @@ import (
 	"github.com/shaia/cuckoofilter/internal/simd/cpu"
 )
 
-// BenchmarkSIMDvs NonSIMD compares SIMD and non-SIMD performance
+// BenchmarkSIMDvsNonSIMD compares SIMD and non-SIMD performance
 func BenchmarkSIMDvsNonSIMD(b *testing.B) {
 	table := crc32.MakeTable(crc32.Castagnoli)
 	simdType := cpu.GetBestSIMD(true) // Use default/auto-detect
