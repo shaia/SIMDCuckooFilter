@@ -1,6 +1,8 @@
 // Package crc32hash provides CRC32C (Castagnoli) hash implementation.
-// This implementation leverages hardware acceleration (SSE4.2) available
-// on modern x86 CPUs for excellent performance.
+// This implementation leverages hardware acceleration when available:
+// - AMD64: SSE4.2 CRC32 instructions
+// - ARM64: ARMv8 CRC32C instructions
+// - Other platforms: Optimized Go implementation
 package crc32hash
 
 import (
@@ -10,7 +12,8 @@ import (
 )
 
 // CRC32Hash implements the CRC32C (Castagnoli) hash function.
-// Uses hardware-accelerated CRC32 instructions when available (SSE4.2).
+// Uses hardware-accelerated CRC32 instructions when available:
+// SSE4.2 on AMD64, ARMv8 CRC32 on ARM64.
 type CRC32Hash struct {
 	Table           *crc32.Table
 	FingerprintBits uint
