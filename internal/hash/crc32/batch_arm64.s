@@ -5,13 +5,12 @@
 
 // func batchCRC32Hardware(items [][]byte, results []uint32)
 // Processes CRC32C checksums using ARMv8 hardware CRC32C instructions
-//
-// ARM64 calling convention:
-// items: ptr(R0), len(R1), cap(R2) = items slice
-// results: ptr(R3), len(R4), cap(R5) = results slice
-//
 // The ARMv8 CRC32C instructions compute the Castagnoli polynomial,
 // which is exactly what we need for hash/crc32.Castagnoli.
+//
+// items: ptr(0), len(8), cap(16) = 24 bytes
+// results: ptr(24), len(32), cap(40) = 24 bytes
+// Total frame size: 24 + 24 = 48 bytes
 TEXT ·batchCRC32Hardware(SB), NOSPLIT, $0-48
     // Load arguments
     MOVD items_base+0(FP), R6      // R6 = items slice base pointer
