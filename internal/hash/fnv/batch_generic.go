@@ -11,15 +11,17 @@ import (
 )
 
 // BatchProcessor handles batch FNV hashing for generic platforms.
+// This generic implementation uses sequential processing without SIMD optimizations.
 type BatchProcessor struct {
-	simdType cpu.SIMDType
+	// No fields needed - simdType parameter is accepted for API compatibility
+	// with platform-specific implementations but not used here.
 }
 
-// NewBatchProcessor creates a new FNV batch processor
+// NewBatchProcessor creates a new FNV batch processor.
+// The simdType parameter is ignored on generic platforms but maintained
+// for API consistency with AMD64/ARM64 implementations.
 func NewBatchProcessor(simdType cpu.SIMDType) *BatchProcessor {
-	return &BatchProcessor{
-		simdType: simdType,
-	}
+	return &BatchProcessor{}
 }
 
 // ProcessBatch processes multiple items using FNV-1a.
