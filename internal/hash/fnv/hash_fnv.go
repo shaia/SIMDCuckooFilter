@@ -1,31 +1,26 @@
-// Package crc32hash provides CRC32C (Castagnoli) hash implementation.
-// This implementation leverages hardware acceleration when available:
-// - AMD64: SSE4.2 CRC32 instructions
-// - ARM64: ARMv8 CRC32C instructions
-// - Other platforms: Optimized Go implementation
-package crc32hash
+// Package fnv provides FNV-1a (Fowler-Noll-Vo) hash implementation.
+// FNV-1a is a simple, fast hash function with good distribution properties.
+// It's implemented in pure Go and serves as a reliable fallback option.
+package fnv
 
 import (
-	"hash/crc32"
+	"hash/fnv"
 
 	"github.com/shaia/cuckoofilter/internal/hash/types"
 )
 
-// CRC32Hash implements the CRC32C (Castagnoli) hash function.
-// Uses hardware-accelerated CRC32 instructions when available:
-// SSE4.2 on AMD64, ARMv8 CRC32 on ARM64.
+// FNVHash implements the FNV-1a (Fowler-Noll-Vo) hash function.
+// FNV-1a provides good distribution and is implemented in pure Go.
 //
-// CRC32Hash instances are safe for concurrent use by multiple goroutines.
-type CRC32Hash struct {
-	Table           *crc32.Table
+// FNVHash instances are safe for concurrent use by multiple goroutines.
+type FNVHash struct {
 	FingerprintBits uint
 	batchProcessor  *BatchProcessor
 }
 
-// NewCRC32Hash creates a new CRC32Hash instance
-func NewCRC32Hash(table *crc32.Table, fingerprintBits uint, batchProcessor *BatchProcessor) *CRC32Hash {
-	return &CRC32Hash{
-		Table:           table,
+// NewFNVHash creates a new FNVHash instance
+func NewFNVHash(fingerprintBits uint, batchProcessor *BatchProcessor) *FNVHash {
+	return &FNVHash{
 		FingerprintBits: fingerprintBits,
 		batchProcessor:  batchProcessor,
 	}
@@ -33,13 +28,13 @@ func NewCRC32Hash(table *crc32.Table, fingerprintBits uint, batchProcessor *Batc
 
 // GetIndices computes the two bucket indices and fingerprint for an item in a cuckoo filter.
 //
-// This method hashes the input item using CRC32C (Castagnoli) and derives:
-//   - i1: The primary bucket index, computed as crc32c(item) % numBuckets
-//   - i2: The alternative bucket index, computed as (i1 ^ crc32c(fp)) % numBuckets
+// This method hashes the input item using FNV-1a (Fowler-Noll-Vo) and derives:
+//   - i1: The primary bucket index, computed as fnv1a(item) % numBuckets
+//   - i2: The alternative bucket index, computed as (i1 ^ fnv1a(fp)) % numBuckets
 //   - fp: A non-zero fingerprint (1-255) extracted from the hash, used to identify the item
 //
-// CRC32C is hardware-accelerated on modern CPUs (SSE4.2 on AMD64, ARMv8 CRC32 on ARM64),
-// providing excellent performance with minimal CPU overhead.
+// FNV-1a is a simple, fast non-cryptographic hash function with good distribution properties.
+// It's implemented in pure Go without assembly, making it portable across all architectures.
 //
 // Parameters:
 //   - item: The data to hash (typically a key or value being inserted into the filter)
@@ -51,24 +46,27 @@ func NewCRC32Hash(table *crc32.Table, fingerprintBits uint, batchProcessor *Batc
 //   - fp: Fingerprint byte (1 <= fp <= 255, never 0 as that indicates an empty slot)
 //
 // Thread-safety: This method is safe for concurrent use by multiple goroutines.
+// Each call creates a new hasher instance, avoiding any shared state.
 //
 // Example:
 //
-//	crc := NewCRC32Hash(crc32.MakeTable(crc32.Castagnoli), 8, nil)
-//	i1, i2, fp := crc.GetIndices([]byte("example"), 1024)
+//	fnv := NewFNVHash(8, nil)
+//	i1, i2, fp := fnv.GetIndices([]byte("example"), 1024)
 //	// i1 and i2 are candidate buckets where the item could be stored
 //	// fp identifies the item within those buckets
-func (h *CRC32Hash) GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp byte) {
-	// CRC32C checksum (hardware accelerated on modern CPUs)
-	hashVal := crc32.Checksum(item, h.Table)
+func (h *FNVHash) GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp byte) {
+	// Hash the item
+	hasher := fnv.New64a()
+	hasher.Write(item)
+	hashVal := hasher.Sum64()
 
-	// Extract fingerprint
-	fp = fingerprint(uint64(hashVal), h.FingerprintBits)
+	// Extract fingerprint from hash
+	fp = fingerprint(hashVal, h.FingerprintBits)
 
 	// Calculate first index
-	i1 = uint(hashVal % uint32(numBuckets))
+	i1 = uint(hashVal % uint64(numBuckets))
 
-	// Calculate second index
+	// Calculate second index using fingerprint
 	i2 = h.GetAltIndex(i1, fp, numBuckets)
 
 	return i1, i2, fp
@@ -77,9 +75,9 @@ func (h *CRC32Hash) GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp by
 // GetAltIndex computes the alternative bucket index given a current index and fingerprint.
 //
 // This method implements the core cuckoo hashing property where each item has exactly two
-// possible bucket locations. The calculation uses XOR with the CRC32C hash of the fingerprint:
+// possible bucket locations. The calculation uses XOR with the FNV-1a hash of the fingerprint:
 //
-//	altIndex = (index ^ crc32c(fp)) % numBuckets
+//	altIndex = (index ^ fnv1a(fp)) % numBuckets
 //
 // This formula has the important mathematical property that applying it twice returns the
 // original index (since XOR is self-inverse):
@@ -98,20 +96,25 @@ func (h *CRC32Hash) GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp by
 //   - The alternative bucket index (0 <= altIndex < numBuckets)
 //
 // Thread-safety: This method is safe for concurrent use by multiple goroutines.
-// It uses stack-allocated buffers to avoid shared state.
+// It uses stack-allocated buffers and creates a new hasher instance per call,
+// avoiding any shared state.
 //
 // Example:
 //
-//	crc := NewCRC32Hash(crc32.MakeTable(crc32.Castagnoli), 8, nil)
-//	i1, _, fp := crc.GetIndices([]byte("example"), 1024)
-//	i2 := crc.GetAltIndex(i1, fp, 1024)  // Get alternative location
-//	i1Back := crc.GetAltIndex(i2, fp, 1024)  // Returns to i1 (symmetry property)
-func (h *CRC32Hash) GetAltIndex(index uint, fp byte, numBuckets uint) uint {
-	// Hash the fingerprint to get alternative index
+//	fnv := NewFNVHash(8, nil)
+//	i1, _, fp := fnv.GetIndices([]byte("example"), 1024)
+//	i2 := fnv.GetAltIndex(i1, fp, 1024)  // Get alternative location
+//	i1Back := fnv.GetAltIndex(i2, fp, 1024)  // Returns to i1 (symmetry property)
+func (h *FNVHash) GetAltIndex(index uint, fp byte, numBuckets uint) uint {
+	// Use fingerprint to compute alternative index
+	// This ensures i2 != i1 for the same fingerprint
 	// Use stack-allocated buffer for thread safety
+	hasher := fnv.New64a()
 	fpBuf := [1]byte{fp}
-	fpHash := crc32.Checksum(fpBuf[:], h.Table)
-	altIndex := (uint64(index) ^ uint64(fpHash)) % uint64(numBuckets)
+	hasher.Write(fpBuf[:])
+	fpHash := hasher.Sum64()
+
+	altIndex := (uint64(index) ^ fpHash) % uint64(numBuckets)
 	return uint(altIndex)
 }
 
@@ -123,9 +126,9 @@ func (h *CRC32Hash) GetAltIndex(index uint, fp byte, numBuckets uint) uint {
 //   - Better cache utilization through sequential processing
 //   - Potential for parallel processing across multiple cores
 //
-// While CRC32C is inherently sequential (each byte depends on the previous state),
-// batch processing still provides performance benefits through reduced overhead and
-// better memory access patterns.
+// FNV-1a is a pure Go implementation, so batch processing primarily benefits from reduced
+// overhead rather than SIMD parallelization. It serves as a reliable fallback when
+// architecture-specific optimizations aren't available.
 //
 // Parameters:
 //   - items: Slice of byte slices to hash (can be variable length)
@@ -136,22 +139,22 @@ func (h *CRC32Hash) GetAltIndex(index uint, fp byte, numBuckets uint) uint {
 //     Each result contains: I1 (primary index), I2 (alternative index), Fp (fingerprint)
 //
 // Thread-safety: This method is safe for concurrent use by multiple goroutines.
-// Different goroutines can call this method simultaneously on the same CRC32Hash instance.
+// Different goroutines can call this method simultaneously on the same FNVHash instance.
 //
 // Performance considerations:
-//   - CRC32C is hardware-accelerated and already very fast for single items
-//   - Batch processing provides diminishing returns compared to SIMD-capable hashes
-//   - Main benefit is reduced function call overhead for many small items
+//   - FNV-1a is simple and fast, but not as optimized as XXHash or CRC32C
+//   - Batch processing provides moderate benefits through reduced overhead
+//   - Best used as a portable fallback when other hash functions aren't suitable
 //
 // Example:
 //
-//	crc := NewCRC32Hash(crc32.MakeTable(crc32.Castagnoli), 8, batchProcessor)
+//	fnv := NewFNVHash(8, batchProcessor)
 //	items := [][]byte{[]byte("key1"), []byte("key2"), []byte("key3")}
-//	results := crc.GetIndicesBatch(items, 1024)
+//	results := fnv.GetIndicesBatch(items, 1024)
 //	for i, result := range results {
 //	    fmt.Printf("Item %d: i1=%d, i2=%d, fp=%d\n", i, result.I1, result.I2, result.Fp)
 //	}
-func (h *CRC32Hash) GetIndicesBatch(items [][]byte, numBuckets uint) []types.HashResult {
+func (h *FNVHash) GetIndicesBatch(items [][]byte, numBuckets uint) []types.HashResult {
 	// Use batch processor if available
 	if h.batchProcessor != nil {
 		return h.batchProcessor.ProcessBatch(items, h.FingerprintBits, numBuckets)
