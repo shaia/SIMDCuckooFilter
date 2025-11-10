@@ -44,10 +44,10 @@ func BenchmarkBatchXXHash(b *testing.B) {
 		b.Run(fmt.Sprintf("Scalar/%ditems", n), func(b *testing.B) {
 			xxh := xxhash.NewXXHash(8, nil)
 			numBuckets := uint(1024)
+			results := make([]types.HashResult, len(items))
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				results := make([]types.HashResult, len(items))
 				for j, item := range items {
 					i1, i2, fp := xxh.GetIndices(item, numBuckets)
 					results[j] = types.HashResult{I1: i1, I2: i2, Fp: fp}
@@ -230,10 +230,10 @@ func BenchmarkBatchFNVHash(b *testing.B) {
 		b.Run(fmt.Sprintf("Sequential/%ditems", n), func(b *testing.B) {
 			fnvHash := fnv.NewFNVHash(8, nil)
 			numBuckets := uint(1024)
+			results := make([]types.HashResult, len(items))
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				results := make([]types.HashResult, len(items))
 				for j, item := range items {
 					i1, i2, fp := fnvHash.GetIndices(item, numBuckets)
 					results[j] = types.HashResult{I1: i1, I2: i2, Fp: fp}
