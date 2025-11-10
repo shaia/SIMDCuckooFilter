@@ -76,31 +76,62 @@ func TestXXHashFinalByteProcessing(t *testing.T) {
 	}
 }
 
-// TestXXHashZeroFingerprint ensures fingerprint is never zero
-func TestXXHashZeroFingerprint(t *testing.T) {
-	// Test with various inputs to ensure fingerprint is never 0
-	testInputs := [][]byte{
-		[]byte(""),
-		[]byte("a"),
-		[]byte("test"),
-		[]byte("hello world"),
-		make([]byte, 100),
+// TestFingerprintZeroHandling verifies that fingerprints are never zero.
+// A zero fingerprint indicates an empty slot in the cuckoo filter.
+//
+// This test ensures that the fingerprint function always returns non-zero values,
+// even when the hash value would naturally produce a zero fingerprint after masking.
+func TestFingerprintZeroHandling(t *testing.T) {
+	fingerprintBits := uint(8)
+
+	xxh := &XXHash{
+		fingerprintBits: fingerprintBits,
+		batchProcessor:  nil,
 	}
 
-	for _, input := range testInputs {
-		hash := hash64XXHashInternal(input)
-		fp8 := fingerprint(hash, 8)
-		fp16 := fingerprint(hash, 16)
-		fp32 := fingerprint(hash, 32)
+	// Test many different inputs to ensure we never get fp=0
+	testInputs := make([][]byte, 1000)
+	for i := 0; i < 1000; i++ {
+		data := make([]byte, 1+i%32)
+		for j := range data {
+			data[j] = byte(i + j)
+		}
+		testInputs[i] = data
+	}
 
-		if fp8 == 0 {
-			t.Errorf("8-bit fingerprint is zero for input %q (hash=%016x)", input, hash)
+	for i, input := range testInputs {
+		_, _, fp := xxh.GetIndices(input, 1024)
+		if fp == 0 {
+			t.Errorf("Input %d produced zero fingerprint (forbidden): %v", i, input)
 		}
-		if fp16 == 0 {
-			t.Errorf("16-bit fingerprint is zero for input %q (hash=%016x)", input, hash)
+	}
+
+	// Test the edge case where hash would naturally produce fp=0
+	// The fingerprint function should convert it to 1
+	hashValZeroFp := uint64(0) // This would give fp=0 without the check
+	fp := fingerprint(hashValZeroFp, fingerprintBits)
+	if fp != 1 {
+		t.Errorf("Zero fingerprint not converted to 1: got %d", fp)
+	}
+
+	// Test hash values that would produce 0 after masking
+	for bits := uint(4); bits <= 8; bits++ {
+		mask := (uint64(1) << bits) - 1
+		testValues := []uint64{
+			0,                    // Direct zero
+			^mask,                // All high bits set, low bits zero
+			0xFFFFFFFFFFFFFF00,   // Example of non-zero hash with zero fingerprint
+			uint64(1) << bits,    // Power of 2 (would be zero after mask)
+			uint64(256),          // Would be zero for 8-bit fingerprint
+			uint64(16),           // Would be zero for 4-bit fingerprint
 		}
-		if fp32 == 0 {
-			t.Errorf("32-bit fingerprint is zero for input %q (hash=%016x)", input, hash)
+
+		for _, hashVal := range testValues {
+			fp := fingerprint(hashVal, bits)
+			if fp == 0 {
+				t.Errorf("fingerprint(%d, %d bits) returned 0, should return 1",
+					hashVal, bits)
+			}
 		}
 	}
 }
