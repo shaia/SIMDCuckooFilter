@@ -65,7 +65,7 @@ GLOBL avx2_shift_37<>(SB), RODATA, $32
 // processBatchXXHashAVX2 computes XXHash64 for multiple items in batch using AVX2
 // Processes 4 items in parallel using 256-bit SIMD registers
 // func processBatchXXHashAVX2(items [][]byte, results []HashResult, fingerprintBits, numBuckets uint)
-TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $128-72
+TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $136-72
     // Load arguments
     MOVQ items_base+0(FP), DI        // DI = items slice base
     MOVQ items_len+8(FP), SI         // SI = number of items
