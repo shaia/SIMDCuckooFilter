@@ -1,6 +1,8 @@
 // Package xxhash provides SIMD-optimized XXHash64 implementation.
 // This is the primary hash function used by the Cuckoo Filter with
-// multi-architecture SIMD support (AMD64 AVX2/SSE2, ARM64 NEON).
+// multi-architecture SIMD support:
+//   - AMD64: AVX2 and SSE2 SIMD batch processing
+//   - ARM64: Optimized assembly (NEON batch processing planned for future)
 package xxhash
 
 import "github.com/shaia/cuckoofilter/internal/hash/types"

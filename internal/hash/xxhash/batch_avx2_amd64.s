@@ -412,12 +412,27 @@ simd_fp_ok:
     MOVQ BP, R8
     ANDQ R13, R8            // i1
 
-    // Calculate i2
-    MOVBQZX CL, R9
-    MOVQ prime64_2<>(SB), R15
-    IMULQ R15, R9
-    XORQ R8, R9
-    ANDQ R13, R9            // i2
+    // Calculate i2: Compute XXHash64 of fingerprint byte in CL, store in R9
+    MOVBQZX CL, R9                  // R9 = fp
+    MOVQ    prime64_5<>(SB), R11   // R11 = prime64_5
+    ADDQ    $1, R11                // seed = prime64_5 + 1 (length=1)
+    ADDQ    R9, R11                // hash = seed + fp
+    MOVQ    R11, R9                // R9 = hash
+    // Avalanche (as in XXHash64 for <=8 bytes)
+    MOVQ    R9, R12
+    SHRQ    $33, R12
+    XORQ    R12, R9
+    IMULQ   prime64_2<>(SB), R9
+    MOVQ    R9, R12
+    SHRQ    $29, R12
+    XORQ    R12, R9
+    IMULQ   prime64_3<>(SB), R9
+    MOVQ    R9, R12
+    SHRQ    $32, R12
+    XORQ    R12, R9
+    // Now R9 = hash(fp)
+    XORQ    R8, R9
+    ANDQ    R13, R9            // i2
 
     // Store result
     MOVQ BX, R15            // Original item index
@@ -510,15 +525,32 @@ scalar_finalize:
     MOVB $1, CL
 scalar_fp_ok:
 
-    // Calculate indices
+    // Calculate i1
     MOVQ 16(SP), R13
     MOVQ BP, R8
-    ANDQ R13, R8
+    ANDQ R13, R8            // i1
 
-    MOVBQZX CL, R9
-    IMULQ prime64_2<>(SB), R9
+    // Calculate i2: hash the fingerprint
+    MOVBQZX CL, R9                  // R9 = fp
+    MOVQ    prime64_5<>(SB), R11   // R11 = prime64_5
+    ADDQ    $1, R11                // seed = prime64_5 + 1 (length=1)
+    ADDQ    R9, R11                // hash = seed + fp
+    MOVQ    R11, R9                // R9 = hash
+    // Avalanche
+    MOVQ    R9, R12
+    SHRQ    $33, R12
+    XORQ    R12, R9
+    IMULQ   prime64_2<>(SB), R9
+    MOVQ    R9, R12
+    SHRQ    $29, R12
+    XORQ    R12, R9
+    IMULQ   prime64_3<>(SB), R9
+    MOVQ    R9, R12
+    SHRQ    $32, R12
+    XORQ    R12, R9
+    // Now R9 = hash(fp)
     XORQ R8, R9
-    ANDQ R13, R9
+    ANDQ R13, R9            // i2
 
     // Store result
     MOVQ AX, R15

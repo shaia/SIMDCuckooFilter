@@ -56,13 +56,13 @@ func (p *BatchHashProcessor) ProcessBatchXXHash(items [][]byte, fingerprintBits,
 	}
 }
 
-// processBatchXXHashAVX2 is implemented in hash_batch_avx2_amd64.s
+// processBatchXXHashAVX2 is implemented in batch_avx2_amd64.s
 // Processes 4 items in parallel using AVX2 256-bit SIMD instructions.
 //
 //go:noescape
 func processBatchXXHashAVX2(items [][]byte, results []types.HashResult, fingerprintBits, numBuckets uint)
 
-// processBatchXXHashSSE2 is implemented in hash_batch_sse2_amd64.s
+// processBatchXXHashSSE2 is implemented in batch_sse2_amd64.s
 // Processes 2 items in parallel using SSE2 128-bit SIMD instructions.
 //
 //go:noescape
