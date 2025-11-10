@@ -19,7 +19,7 @@ type BatchProcessor struct {
 
 // NewBatchProcessor creates a new FNV batch processor.
 // The simdType parameter is ignored on generic platforms but maintained
-// for API consistency with AMD64/ARM64 implementations.
+// for API consistency with the AMD64 implementation.
 func NewBatchProcessor(simdType cpu.SIMDType) *BatchProcessor {
 	return &BatchProcessor{}
 }
@@ -37,8 +37,10 @@ func (p *BatchProcessor) ProcessBatch(items [][]byte, fingerprintBits, numBucket
 		fp := fingerprint(hashVal, fingerprintBits)
 		i1 := uint(hashVal % uint64(numBuckets))
 
+		// Use stack-allocated buffer to avoid heap allocation
 		fpHasher := fnv.New64a()
-		fpHasher.Write([]byte{fp})
+		fpBuf := [1]byte{fp}
+		fpHasher.Write(fpBuf[:])
 		fpHash := fpHasher.Sum64()
 		i2 := (uint64(i1) ^ fpHash) % uint64(numBuckets)
 
