@@ -14,11 +14,12 @@ import (
 // CRC32Hash implements the CRC32C (Castagnoli) hash function.
 // Uses hardware-accelerated CRC32 instructions when available:
 // SSE4.2 on AMD64, ARMv8 CRC32 on ARM64.
+//
+// CRC32Hash instances are safe for concurrent use by multiple goroutines.
 type CRC32Hash struct {
 	Table           *crc32.Table
 	FingerprintBits uint
 	batchProcessor  *BatchProcessor
-	fpBuf           [1]byte // Reusable buffer for GetAltIndex to avoid allocations
 }
 
 // NewCRC32Hash creates a new CRC32Hash instance
@@ -48,8 +49,9 @@ func (h *CRC32Hash) GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp by
 
 func (h *CRC32Hash) GetAltIndex(index uint, fp byte, numBuckets uint) uint {
 	// Hash the fingerprint to get alternative index
-	h.fpBuf[0] = fp
-	fpHash := crc32.Checksum(h.fpBuf[:], h.Table)
+	// Use stack-allocated buffer for thread safety
+	fpBuf := [1]byte{fp}
+	fpHash := crc32.Checksum(fpBuf[:], h.Table)
 	altIndex := (uint64(index) ^ uint64(fpHash)) % uint64(numBuckets)
 	return uint(altIndex)
 }

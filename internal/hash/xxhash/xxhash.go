@@ -10,10 +10,11 @@ import "github.com/shaia/cuckoofilter/internal/hash/types"
 // XXHash is a SIMD-optimized XXHash64 implementation.
 // For production use, this provides excellent performance across architectures.
 // Alternatively, consider github.com/cespare/xxhash/v2 for a pure Go version.
+//
+// XXHash instances are safe for concurrent use by multiple goroutines.
 type XXHash struct {
 	fingerprintBits uint
 	batchProcessor  *BatchHashProcessor
-	fpBuf           [1]byte // Reusable buffer for GetAltIndex to avoid allocations
 }
 
 // NewXXHash creates a new XXHash instance
@@ -48,8 +49,10 @@ func (h *XXHash) GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp byte)
 }
 
 func (h *XXHash) GetAltIndex(index uint, fp byte, numBuckets uint) uint {
-	h.fpBuf[0] = fp
-	fpHash := h.hash64(h.fpBuf[:])
+	// Hash the fingerprint to get alternative index
+	// Use stack-allocated buffer for thread safety
+	fpBuf := [1]byte{fp}
+	fpHash := h.hash64(fpBuf[:])
 	altIndex := (uint64(index) ^ fpHash) % uint64(numBuckets)
 	return uint(altIndex)
 }
