@@ -143,7 +143,8 @@ func BenchmarkCRC32Hash(b *testing.B) {
 		}
 
 		b.Run(fmt.Sprintf("%dbytes", size), func(b *testing.B) {
-			crc := crc32hash.NewCRC32Hash(crc32.MakeTable(crc32.Castagnoli), 8, nil)
+			table := crc32.MakeTable(crc32.Castagnoli)
+			crc := crc32hash.NewCRC32Hash(table, 8, nil)
 			numBuckets := uint(1024)
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -194,7 +195,8 @@ func BenchmarkHashComparison(b *testing.B) {
 	})
 
 	b.Run("CRC32", func(b *testing.B) {
-		crc := crc32hash.NewCRC32Hash(crc32.MakeTable(crc32.Castagnoli), 8, nil)
+		table := crc32.MakeTable(crc32.Castagnoli)
+		crc := crc32hash.NewCRC32Hash(table, 8, nil)
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -270,7 +272,8 @@ func BenchmarkGetAltIndex(b *testing.B) {
 	})
 
 	b.Run("CRC32", func(b *testing.B) {
-		crc := crc32hash.NewCRC32Hash(crc32.MakeTable(crc32.Castagnoli), 8, nil)
+		table := crc32.MakeTable(crc32.Castagnoli)
+		crc := crc32hash.NewCRC32Hash(table, 8, nil)
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
