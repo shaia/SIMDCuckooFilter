@@ -56,31 +56,28 @@ func TestAlternativeIndexCalculation(t *testing.T) {
 					i1Ref, fpRef, fpHash, expectedI2, i2Ref)
 			}
 
-			// Test with best available SIMD implementation
-			bestSIMD := cpu.GetBestSIMD(true)
-			if bestSIMD != cpu.SIMDNone {
-				t.Run(bestSIMD.String(), func(t *testing.T) {
-					batchProc := NewBatchHashProcessor(bestSIMD)
-					simdHash := &XXHash{
-						fingerprintBits: fingerprintBits,
-						batchProcessor:  batchProc,
-					}
+			// Test with SIMD batch implementation (auto-selected)
+			t.Run("SIMD", func(t *testing.T) {
+				batchProc := NewBatchHashProcessor()
+				simdHash := &XXHash{
+					fingerprintBits: fingerprintBits,
+					batchProcessor:  batchProc,
+				}
 
-					results := simdHash.GetIndicesBatch([][]byte{tc.data}, numBuckets)
-					if len(results) != 1 {
-						t.Fatalf("Expected 1 result, got %d", len(results))
-					}
+				results := simdHash.GetIndicesBatch([][]byte{tc.data}, numBuckets)
+				if len(results) != 1 {
+					t.Fatalf("Expected 1 result, got %d", len(results))
+				}
 
-					result := results[0]
-					if result.I1 != i1Ref || result.I2 != i2Ref || result.Fp != fpRef {
-						t.Errorf("%s SIMD implementation incorrect:\n"+
-							"  Expected: i1=%d, i2=%d, fp=%d\n"+
-							"  Got:      i1=%d, i2=%d, fp=%d",
-							bestSIMD.String(), i1Ref, i2Ref, fpRef,
-							result.I1, result.I2, result.Fp)
-					}
-				})
-			}
+				result := results[0]
+				if result.I1 != i1Ref || result.I2 != i2Ref || result.Fp != fpRef {
+					t.Errorf("SIMD implementation incorrect:\n"+
+						"  Expected: i1=%d, i2=%d, fp=%d\n"+
+						"  Got:      i1=%d, i2=%d, fp=%d",
+						i1Ref, i2Ref, fpRef,
+						result.I1, result.I2, result.Fp)
+				}
+			})
 		})
 	}
 }

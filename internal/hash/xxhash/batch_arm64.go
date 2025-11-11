@@ -7,24 +7,17 @@ package xxhash
 
 import (
 	"github.com/shaia/cuckoofilter/internal/hash/types"
-	"github.com/shaia/cuckoofilter/internal/simd/cpu"
 )
 
 // BatchHashProcessor handles batch hashing on ARM64.
+// Uses optimized ARM64 assembly for single-item hashing (~32% faster than pure Go).
 //
-// Current implementation uses scalar processing with optimized
-// ARM64 assembly for single-item hashing (~32% faster than pure Go).
-//
-// Future: NEON-parallel batch processing (2-4 items in parallel)
-type BatchHashProcessor struct {
-	simdType cpu.SIMDType
-}
+// TODO: Implement NEON-parallel batch processing (2-4 items in parallel)
+type BatchHashProcessor struct{}
 
 // NewBatchHashProcessor creates a new batch hash processor for ARM64.
-func NewBatchHashProcessor(simdType cpu.SIMDType) *BatchHashProcessor {
-	return &BatchHashProcessor{
-		simdType: simdType,
-	}
+func NewBatchHashProcessor() *BatchHashProcessor {
+	return &BatchHashProcessor{}
 }
 
 // ProcessBatchXXHash processes multiple items using optimized XXHash.
