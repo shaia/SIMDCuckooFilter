@@ -58,7 +58,7 @@ func TestBatchConsistencyAllSizes(t *testing.T) {
 			bestSIMD := cpu.GetBestSIMD(true)
 			if bestSIMD != cpu.SIMDNone {
 				t.Run(bestSIMD.String(), func(t *testing.T) {
-					batchProc := NewBatchHashProcessor(bestSIMD)
+					batchProc := NewBatchHashProcessor()
 					simdHash := &XXHash{
 						fingerprintBits: fingerprintBits,
 						batchProcessor:  batchProc,
@@ -90,8 +90,7 @@ func TestBatchConsistencyAllSizes(t *testing.T) {
 // TestSIMDScalarFallback verifies that SIMD implementations correctly fall back
 // to scalar processing when batch size is less than the SIMD width.
 //
-// This ensures that edge cases (batch size < 4 for AVX2, < 2 for SSE2) are
-// handled correctly.
+// This ensures that edge cases (batch size < 4 for AVX2) are handled correctly.
 func TestSIMDScalarFallback(t *testing.T) {
 	fingerprintBits := uint(8)
 	numBuckets := uint(1024)
@@ -124,7 +123,7 @@ func TestSIMDScalarFallback(t *testing.T) {
 	batchSizes := []int{1, 2, 3}
 	for _, batchSize := range batchSizes {
 		t.Run(bestSIMD.String()+"_"+string(rune('0'+batchSize))+"_items", func(t *testing.T) {
-			batchProc := NewBatchHashProcessor(bestSIMD)
+			batchProc := NewBatchHashProcessor()
 			simdHash := &XXHash{
 				fingerprintBits: fingerprintBits,
 				batchProcessor:  batchProc,
@@ -193,7 +192,7 @@ func TestBatchProcessingMemorySafety(t *testing.T) {
 	}
 
 	t.Run(bestSIMD.String(), func(t *testing.T) {
-		batchProc := NewBatchHashProcessor(bestSIMD)
+		batchProc := NewBatchHashProcessor()
 		simdHash := &XXHash{
 			fingerprintBits: fingerprintBits,
 			batchProcessor:  batchProc,
