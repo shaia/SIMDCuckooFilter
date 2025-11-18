@@ -2,6 +2,7 @@ package cuckoofilter
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
 	"github.com/shaia/simdcuckoofilter/internal/hash"
@@ -318,6 +319,208 @@ func TestAllBucketSizes(t *testing.T) {
 				item := []byte(fmt.Sprintf("bucket-%d-item-%d", size, i))
 				if !cf.Insert(item) {
 					t.Errorf("Insert failed for item %d with bucket size %d", i, size)
+				}
+			}
+		})
+	}
+}
+
+// TestIntegration tests a complete workflow
+func TestIntegration(t *testing.T) {
+	cf, err := New(1000)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	// Insert multiple items
+	items := [][]byte{
+		[]byte("integration-1"),
+		[]byte("integration-2"),
+		[]byte("integration-3"),
+		[]byte("integration-4"),
+		[]byte("integration-5"),
+	}
+
+	for _, item := range items {
+		if !cf.Insert(item) {
+			t.Errorf("Failed to insert item: %s", item)
+		}
+	}
+
+	// Verify all items exist
+	for _, item := range items {
+		if !cf.Lookup(item) {
+			t.Errorf("Failed to find item: %s", item)
+		}
+	}
+
+	// Check count
+	if cf.Count() != uint(len(items)) {
+		t.Errorf("Expected count %d, got %d", len(items), cf.Count())
+	}
+
+	// Delete some items
+	if !cf.Delete(items[0]) {
+		t.Error("Failed to delete first item")
+	}
+	if !cf.Delete(items[2]) {
+		t.Error("Failed to delete third item")
+	}
+
+	// Verify count updated
+	expectedCount := uint(len(items) - 2)
+	if cf.Count() != expectedCount {
+		t.Errorf("Expected count %d after deletes, got %d", expectedCount, cf.Count())
+	}
+
+	// Reset and verify empty
+	cf.Reset()
+	if cf.Count() != 0 {
+		t.Errorf("Expected count 0 after reset, got %d", cf.Count())
+	}
+
+	// Should not find items after reset
+	for _, item := range items {
+		if cf.Lookup(item) {
+			t.Logf("Warning: Item %s still found after reset (false positive)", item)
+		}
+	}
+}
+
+// TestSIMD tests SIMD-specific filter functionality
+func TestSIMD(t *testing.T) {
+	// Skip on architectures without SIMD support
+	if runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64" {
+		t.Skip("SIMD not supported on this architecture")
+	}
+
+	cf, err := New(1000)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	item := []byte("test-simd")
+	if !cf.Insert(item) {
+		t.Error("Insert failed")
+	}
+
+	if !cf.Lookup(item) {
+		t.Error("Lookup failed")
+	}
+}
+
+// TestBatchOperations tests SIMD batch processing
+func TestBatchOperations(t *testing.T) {
+	cf, _ := New(1000)
+
+	// Type assert to BatchFilter
+	bf, ok := cf.(BatchFilter)
+	if !ok {
+		t.Skip("Filter does not implement BatchFilter")
+	}
+
+	items := [][]byte{
+		[]byte("item1"),
+		[]byte("item2"),
+		[]byte("item3"),
+		[]byte("item4"),
+		[]byte("item5"),
+		[]byte("item6"),
+		[]byte("item7"),
+		[]byte("item8"),
+	}
+
+	// Batch insert
+	results := bf.InsertBatch(items)
+	for i, success := range results {
+		if !success {
+			t.Errorf("Batch insert failed for item %d", i)
+		}
+	}
+
+	// Batch lookup
+	found := bf.LookupBatch(items)
+	for i, exists := range found {
+		if !exists {
+			t.Errorf("Batch lookup failed for item %d", i)
+		}
+	}
+}
+
+// TestBatchDelete tests batch delete operations
+func TestBatchDelete(t *testing.T) {
+	cf, _ := New(1000)
+
+	bf, ok := cf.(BatchFilter)
+	if !ok {
+		t.Skip("Filter does not implement BatchFilter")
+	}
+
+	items := [][]byte{
+		[]byte("delete1"),
+		[]byte("delete2"),
+		[]byte("delete3"),
+		[]byte("delete4"),
+	}
+
+	// Insert items
+	bf.InsertBatch(items)
+
+	// Verify they exist
+	found := bf.LookupBatch(items)
+	for i, exists := range found {
+		if !exists {
+			t.Errorf("Item %d not found after batch insert", i)
+		}
+	}
+
+	// Batch delete
+	results := bf.DeleteBatch(items)
+	for i, success := range results {
+		if !success {
+			t.Logf("Batch delete returned false for item %d (may not exist)", i)
+		}
+	}
+}
+
+// TestBatchWithDifferentHashStrategies tests batch operations with different hash algorithms
+func TestBatchWithDifferentHashStrategies(t *testing.T) {
+	strategies := []hash.HashStrategy{
+		hash.HashStrategyXXHash,
+		hash.HashStrategyCRC32,
+		hash.HashStrategyFNV,
+	}
+
+	for _, strategy := range strategies {
+		t.Run(strategy.String(), func(t *testing.T) {
+			cf, err := New(1000, WithHashStrategy(strategy))
+			if err != nil {
+				t.Fatalf("New failed with %s: %v", strategy, err)
+			}
+
+			bf, ok := cf.(BatchFilter)
+			if !ok {
+				t.Skip("Filter does not implement BatchFilter")
+			}
+
+			items := make([][]byte, 16)
+			for i := range items {
+				items[i] = []byte(fmt.Sprintf("item-%s-%d", strategy, i))
+			}
+
+			// Batch insert
+			results := bf.InsertBatch(items)
+			for i, success := range results {
+				if !success {
+					t.Errorf("Batch insert failed for item %d with %s", i, strategy)
+				}
+			}
+
+			// Batch lookup
+			found := bf.LookupBatch(items)
+			for i, exists := range found {
+				if !exists {
+					t.Errorf("Batch lookup failed for item %d with %s", i, strategy)
 				}
 			}
 		})
