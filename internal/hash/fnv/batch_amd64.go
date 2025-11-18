@@ -4,7 +4,7 @@
 package fnv
 
 import (
-	"github.com/shaia/cuckoofilter/internal/hash/types"
+	"github.com/shaia/simdcuckoofilter/internal/hash/types"
 )
 
 // BatchProcessor handles optimized batch FNV hashing for AMD64.

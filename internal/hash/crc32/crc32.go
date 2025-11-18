@@ -14,7 +14,7 @@ package crc32hash
 import (
 	"hash/crc32"
 
-	"github.com/shaia/cuckoofilter/internal/hash/types"
+	"github.com/shaia/simdcuckoofilter/internal/hash/types"
 )
 
 // CRC32Hash implements the CRC32C (Castagnoli) hash function.

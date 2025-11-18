@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/shaia/cuckoofilter/internal/hash"
+	"github.com/shaia/simdcuckoofilter/internal/hash"
 )
 
 // TestNew validates basic filter creation

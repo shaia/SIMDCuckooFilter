@@ -13,7 +13,7 @@ package fnv
 import (
 	"hash/fnv"
 
-	"github.com/shaia/cuckoofilter/internal/hash/types"
+	"github.com/shaia/simdcuckoofilter/internal/hash/types"
 )
 
 // FNVHash implements the FNV-1a (Fowler-Noll-Vo) hash function.

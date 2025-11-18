@@ -3,7 +3,7 @@ package xxhash
 import (
 	"testing"
 
-	"github.com/shaia/cuckoofilter/internal/simd/cpu"
+	"github.com/shaia/simdcuckoofilter/internal/simd/cpu"
 )
 
 // TestAlternativeIndexCalculation verifies that the alternative index (i2) is

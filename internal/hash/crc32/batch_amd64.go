@@ -6,7 +6,7 @@ package crc32hash
 import (
 	"hash/crc32"
 
-	"github.com/shaia/cuckoofilter/internal/hash/types"
+	"github.com/shaia/simdcuckoofilter/internal/hash/types"
 )
 
 // BatchProcessor handles optimized batch CRC32 hashing for AMD64.

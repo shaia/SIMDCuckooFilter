@@ -3,9 +3,9 @@ package hash
 import (
 	stdcrc32 "hash/crc32"
 
-	crc32hash "github.com/shaia/cuckoofilter/internal/hash/crc32"
-	fnvhash "github.com/shaia/cuckoofilter/internal/hash/fnv"
-	"github.com/shaia/cuckoofilter/internal/hash/xxhash"
+	crc32hash "github.com/shaia/simdcuckoofilter/internal/hash/crc32"
+	fnvhash "github.com/shaia/simdcuckoofilter/internal/hash/fnv"
+	"github.com/shaia/simdcuckoofilter/internal/hash/xxhash"
 )
 
 // NewHashFunction creates a hash function based on the strategy and fingerprint bits.

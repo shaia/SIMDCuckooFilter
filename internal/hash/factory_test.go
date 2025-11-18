@@ -3,9 +3,9 @@ package hash
 import (
 	"testing"
 
-	crc32hash "github.com/shaia/cuckoofilter/internal/hash/crc32"
-	fnvhash "github.com/shaia/cuckoofilter/internal/hash/fnv"
-	"github.com/shaia/cuckoofilter/internal/hash/xxhash"
+	crc32hash "github.com/shaia/simdcuckoofilter/internal/hash/crc32"
+	fnvhash "github.com/shaia/simdcuckoofilter/internal/hash/fnv"
+	"github.com/shaia/simdcuckoofilter/internal/hash/xxhash"
 )
 
 // TestNewHashFunction verifies that NewHashFunction creates the correct hash type

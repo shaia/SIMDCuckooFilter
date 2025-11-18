@@ -6,7 +6,7 @@
 package xxhash
 
 import (
-	"github.com/shaia/cuckoofilter/internal/hash/types"
+	"github.com/shaia/simdcuckoofilter/internal/hash/types"
 )
 
 // BatchHashProcessor handles AVX2-optimized batch hashing for AMD64.
