@@ -1,7 +1,7 @@
 //go:build arm64
 // +build arm64
 
-package simd
+package lookup
 
 // BucketLookup performs NEON-optimized lookup in a bucket for ARM64.
 // Uses NEON instructions to process 16 bytes in parallel.

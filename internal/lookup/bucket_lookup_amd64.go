@@ -1,7 +1,7 @@
 //go:build amd64
 // +build amd64
 
-package simd
+package lookup
 
 // BucketLookup performs AVX2-optimized lookup in a bucket for AMD64.
 // Uses AVX2 instructions to process 32 bytes in parallel.
