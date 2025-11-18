@@ -1,7 +1,7 @@
 // Package xxhash provides SIMD-optimized XXHash64 implementation.
 // This is the primary hash function used by the Cuckoo Filter with
 // multi-architecture SIMD support:
-//   - AMD64: AVX2 and SSE2 SIMD batch processing
+//   - AMD64: AVX2 SIMD batch processing
 //   - ARM64: Optimized assembly (NEON batch processing planned for future)
 package xxhash
 
@@ -117,7 +117,7 @@ func (h *XXHash) GetAltIndex(index uint, fp byte, numBuckets uint) uint {
 //
 // This method processes multiple items in a single call, leveraging SIMD optimizations
 // when available to achieve significant performance gains:
-//   - AMD64: AVX2 (4-way parallel) or SSE2 (2-way parallel) batch processing
+//   - AMD64: AVX2 (4-way parallel) batch processing
 //   - ARM64: Optimized assembly (NEON batch processing planned for future)
 //   - Fallback: Sequential scalar processing if no SIMD support
 //

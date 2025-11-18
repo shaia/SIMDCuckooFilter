@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/shaia/cuckoofilter/internal/hash/types"
-	"github.com/shaia/cuckoofilter/internal/simd/cpu"
 )
 
 // TestBatchConsistencyAllSizes verifies that SIMD batch processing produces
@@ -54,34 +53,29 @@ func TestBatchConsistencyAllSizes(t *testing.T) {
 				refResults[i] = types.HashResult{I1: i1, I2: i2, Fp: fp}
 			}
 
-			// Test with best available SIMD implementation
-			bestSIMD := cpu.GetBestSIMD(true)
-			if bestSIMD != cpu.SIMDNone {
-				t.Run(bestSIMD.String(), func(t *testing.T) {
-					batchProc := NewBatchHashProcessor(bestSIMD)
-					simdHash := &XXHash{
-						fingerprintBits: fingerprintBits,
-						batchProcessor:  batchProc,
-					}
+			// Test with batch processor (auto-selects best SIMD implementation)
+			batchProc := NewBatchHashProcessor()
+			simdHash := &XXHash{
+				fingerprintBits: fingerprintBits,
+				batchProcessor:  batchProc,
+			}
 
-					results := simdHash.GetIndicesBatch(batch, numBuckets)
+			results := simdHash.GetIndicesBatch(batch, numBuckets)
 
-					if len(results) != len(refResults) {
-						t.Fatalf("Expected %d results, got %d", len(refResults), len(results))
-					}
+			if len(results) != len(refResults) {
+				t.Fatalf("Expected %d results, got %d", len(refResults), len(results))
+			}
 
-					for i := 0; i < len(results); i++ {
-						if results[i] != refResults[i] {
-							t.Errorf("Batch item %d mismatch:\n"+
-								"  Input: %v\n"+
-								"  Expected: i1=%d, i2=%d, fp=%d\n"+
-								"  Got:      i1=%d, i2=%d, fp=%d",
-								i, batch[i],
-								refResults[i].I1, refResults[i].I2, refResults[i].Fp,
-								results[i].I1, results[i].I2, results[i].Fp)
-						}
-					}
-				})
+			for i := 0; i < len(results); i++ {
+				if results[i] != refResults[i] {
+					t.Errorf("Batch item %d mismatch:\n"+
+						"  Input: %v\n"+
+						"  Expected: i1=%d, i2=%d, fp=%d\n"+
+						"  Got:      i1=%d, i2=%d, fp=%d",
+						i, batch[i],
+						refResults[i].I1, refResults[i].I2, refResults[i].Fp,
+						results[i].I1, results[i].I2, results[i].Fp)
+				}
 			}
 		})
 	}
@@ -90,8 +84,7 @@ func TestBatchConsistencyAllSizes(t *testing.T) {
 // TestSIMDScalarFallback verifies that SIMD implementations correctly fall back
 // to scalar processing when batch size is less than the SIMD width.
 //
-// This ensures that edge cases (batch size < 4 for AVX2, < 2 for SSE2) are
-// handled correctly.
+// This ensures that edge cases (batch size < 4 for AVX2) are handled correctly.
 func TestSIMDScalarFallback(t *testing.T) {
 	fingerprintBits := uint(8)
 	numBuckets := uint(1024)
@@ -114,17 +107,13 @@ func TestSIMDScalarFallback(t *testing.T) {
 		refResults[i] = types.HashResult{I1: i1, I2: i2, Fp: fp}
 	}
 
-	// Test with best available SIMD
-	bestSIMD := cpu.GetBestSIMD(true)
-	if bestSIMD == cpu.SIMDNone {
-		t.Skip("No SIMD support available")
-	}
+	// Test with batch processor (auto-selects best SIMD implementation)
+	batchProc := NewBatchHashProcessor()
 
 	// Test various batch sizes
 	batchSizes := []int{1, 2, 3}
 	for _, batchSize := range batchSizes {
-		t.Run(bestSIMD.String()+"_"+string(rune('0'+batchSize))+"_items", func(t *testing.T) {
-			batchProc := NewBatchHashProcessor(bestSIMD)
+		t.Run(string(rune('0'+batchSize))+"_items", func(t *testing.T) {
 			simdHash := &XXHash{
 				fingerprintBits: fingerprintBits,
 				batchProcessor:  batchProc,
@@ -186,36 +175,29 @@ func TestBatchProcessingMemorySafety(t *testing.T) {
 		refResults[i] = types.HashResult{I1: i1, I2: i2, Fp: fp}
 	}
 
-	// Test with best available SIMD
-	bestSIMD := cpu.GetBestSIMD(true)
-	if bestSIMD == cpu.SIMDNone {
-		t.Skip("No SIMD support available")
+	// Test with batch processor (auto-selects best SIMD implementation)
+	batchProc := NewBatchHashProcessor()
+	simdHash := &XXHash{
+		fingerprintBits: fingerprintBits,
+		batchProcessor:  batchProc,
 	}
 
-	t.Run(bestSIMD.String(), func(t *testing.T) {
-		batchProc := NewBatchHashProcessor(bestSIMD)
-		simdHash := &XXHash{
-			fingerprintBits: fingerprintBits,
-			batchProcessor:  batchProc,
-		}
+	results := simdHash.GetIndicesBatch(batch, numBuckets)
 
-		results := simdHash.GetIndicesBatch(batch, numBuckets)
+	if len(results) != batchSize {
+		t.Fatalf("Expected %d results, got %d", batchSize, len(results))
+	}
 
-		if len(results) != batchSize {
-			t.Fatalf("Expected %d results, got %d", batchSize, len(results))
+	// Check random samples to verify correctness
+	samples := []int{0, 1, 10, 100, 500, batchSize - 1}
+	for _, idx := range samples {
+		if results[idx] != refResults[idx] {
+			t.Errorf("Sample %d mismatch:\n"+
+				"  Expected: i1=%d, i2=%d, fp=%d\n"+
+				"  Got:      i1=%d, i2=%d, fp=%d",
+				idx,
+				refResults[idx].I1, refResults[idx].I2, refResults[idx].Fp,
+				results[idx].I1, results[idx].I2, results[idx].Fp)
 		}
-
-		// Check random samples to verify correctness
-		samples := []int{0, 1, 10, 100, 500, batchSize - 1}
-		for _, idx := range samples {
-			if results[idx] != refResults[idx] {
-				t.Errorf("Sample %d mismatch:\n"+
-					"  Expected: i1=%d, i2=%d, fp=%d\n"+
-					"  Got:      i1=%d, i2=%d, fp=%d",
-					idx,
-					refResults[idx].I1, refResults[idx].I2, refResults[idx].Fp,
-					results[idx].I1, results[idx].I2, results[idx].Fp)
-			}
-		}
-	})
+	}
 }
