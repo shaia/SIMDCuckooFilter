@@ -12,7 +12,7 @@ func main() {
 	// Note: Fingerprint size is limited to 8 bits (1 byte) in this implementation
 	cf, err := cuckoofilter.New(10000,
 		cuckoofilter.WithFingerprintSize(8),   // 8-bit fingerprints (maximum supported)
-		cuckoofilter.WithBucketSize(32),       // 32 fingerprints per bucket (better for ARM64)
+		cuckoofilter.WithBucketSize(32),       // 32 fingerprints per bucket (optimal for AVX2/NEON SIMD)
 		cuckoofilter.WithMaxKicks(500),        // Standard relocation limit
 	)
 	if err != nil {
@@ -21,7 +21,7 @@ func main() {
 
 	fmt.Println("Created Cuckoo filter with custom options:")
 	fmt.Printf("  Fingerprint size: 8 bits (1 byte)\n")
-	fmt.Printf("  Bucket size: 32 fingerprints (optimal for ARM64 SIMD)\n")
+	fmt.Printf("  Bucket size: 32 fingerprints (optimal for AMD64 AVX2 and ARM64 NEON)\n")
 	fmt.Printf("  Max kicks: 500 (relocation attempts)\n")
 	fmt.Printf("  Capacity: %d items\n\n", cf.Capacity())
 

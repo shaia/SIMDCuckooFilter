@@ -9,8 +9,9 @@ import (
 
 func main() {
 	// Create a new Cuckoo filter with capacity for 10,000 items
-	// On ARM64 (Apple Silicon, AWS Graviton), uses optimized assembly for bucket operations
-	// On AMD64 and other platforms, uses Go's compiler-optimized code
+	// Uses SIMD-optimized assembly for bucket operations:
+	// - AMD64: AVX2 instructions (32 bytes parallel)
+	// - ARM64: Scalar fallback (NEON assembly TODO)
 	cf, err := cuckoofilter.New(10000)
 	if err != nil {
 		log.Fatalf("Failed to create filter: %v", err)
