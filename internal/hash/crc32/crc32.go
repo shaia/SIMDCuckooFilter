@@ -1,8 +1,14 @@
-// Package crc32hash provides CRC32C (Castagnoli) hash implementation.
-// This implementation leverages hardware acceleration when available:
-// - AMD64: SSE4.2 CRC32 instructions
-// - ARM64: ARMv8 CRC32C instructions
-// - Other platforms: Optimized Go implementation
+// Package crc32hash provides CRC32C (Castagnoli) hash implementation with hardware acceleration.
+//
+// Supported Platforms:
+//   - AMD64 (linux/amd64, darwin/amd64, windows/amd64): Uses SSE4.2 CRC32 instructions
+//   - ARM64 (linux/arm64, darwin/arm64): Uses ARMv8 CRC32C instructions
+//
+// Unsupported platforms will fail at compile time with a clear error message.
+//
+// Hardware acceleration provides significant performance benefits:
+//   - AMD64: SSE4.2 CRC32C instruction (available on all modern Intel/AMD CPUs since ~2008)
+//   - ARM64: ARMv8 CRC32 instructions (mandatory in ARMv8-A, available on all ARM64 CPUs)
 package crc32hash
 
 import (
