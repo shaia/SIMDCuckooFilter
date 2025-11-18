@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/shaia/cuckoofilter/internal/hash"
+	"github.com/shaia/simdcuckoofilter/internal/hash"
 )
 
 // TestNew validates basic filter creation
@@ -129,23 +129,6 @@ func TestWithOptions(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("New with options failed: %v", err)
-	}
-
-	item := []byte("test")
-	if !cf.Insert(item) {
-		t.Error("Insert failed")
-	}
-
-	if !cf.Lookup(item) {
-		t.Error("Lookup failed")
-	}
-}
-
-// TestScalar validates scalar implementation
-func TestScalar(t *testing.T) {
-	cf, err := NewScalar(1000)
-	if err != nil {
-		t.Fatalf("NewScalar failed: %v", err)
 	}
 
 	item := []byte("test")

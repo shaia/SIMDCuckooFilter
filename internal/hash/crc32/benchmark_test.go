@@ -7,14 +7,11 @@ import (
 	"fmt"
 	"hash/crc32"
 	"testing"
-
-	"github.com/shaia/cuckoofilter/internal/simd/cpu"
 )
 
-// BenchmarkSIMDvsNonSIMD compares SIMD and non-SIMD performance
-func BenchmarkSIMDvsNonSIMD(b *testing.B) {
+// BenchmarkSIMDBatchSizes benchmarks different batch sizes
+func BenchmarkSIMDBatchSizes(b *testing.B) {
 	table := crc32.MakeTable(crc32.Castagnoli)
-	simdType := cpu.GetBestSIMD(true) // Use default/auto-detect
 
 	batchSizes := []int{4, 8, 16, 32, 64}
 
@@ -25,16 +22,8 @@ func BenchmarkSIMDvsNonSIMD(b *testing.B) {
 			items[i] = []byte(fmt.Sprintf("benchmark-item-%d-with-some-data", i))
 		}
 
-		b.Run(fmt.Sprintf("SIMD/size-%d", size), func(b *testing.B) {
-			processor := NewBatchProcessor(table, simdType)
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				processor.ProcessBatch(items, 8, 1000)
-			}
-		})
-
-		b.Run(fmt.Sprintf("NonSIMD/size-%d", size), func(b *testing.B) {
-			processor := NewBatchProcessorNoSIMD(table, simdType)
+		b.Run(fmt.Sprintf("size-%d", size), func(b *testing.B) {
+			processor := NewBatchProcessor(table)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				processor.ProcessBatch(items, 8, 1000)
@@ -72,7 +61,7 @@ func BenchmarkSIMDRawCRC32(b *testing.B) {
 // BenchmarkSIMDItemSizes benchmarks different item sizes
 func BenchmarkSIMDItemSizes(b *testing.B) {
 	table := crc32.MakeTable(crc32.Castagnoli)
-	processor := NewBatchProcessor(table, cpu.GetBestSIMD(true))
+	processor := NewBatchProcessor(table)
 
 	itemSizes := []int{8, 16, 32, 64, 128, 256, 512, 1024}
 
@@ -112,17 +101,8 @@ func BenchmarkSIMDThroughput(b *testing.B) {
 		items[i] = data
 	}
 
-	b.Run("SIMD", func(b *testing.B) {
-		processor := NewBatchProcessor(table, cpu.GetBestSIMD(true))
-		b.SetBytes(batchSize * itemSize)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			processor.ProcessBatch(items, 8, 10000)
-		}
-	})
-
-	b.Run("NonSIMD", func(b *testing.B) {
-		processor := NewBatchProcessorNoSIMD(table, cpu.GetBestSIMD(true))
+	b.Run("BatchProcessor", func(b *testing.B) {
+		processor := NewBatchProcessor(table)
 		b.SetBytes(batchSize * itemSize)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -134,7 +114,7 @@ func BenchmarkSIMDThroughput(b *testing.B) {
 // BenchmarkCompareSingleVsBatch compares single vs batch processing
 func BenchmarkCompareSingleVsBatch(b *testing.B) {
 	table := crc32.MakeTable(crc32.Castagnoli)
-	processor := NewBatchProcessor(table, cpu.GetBestSIMD(true))
+	processor := NewBatchProcessor(table)
 
 	items := make([][]byte, 16)
 	for i := range items {

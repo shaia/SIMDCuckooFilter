@@ -1,12 +1,19 @@
-// Package fnv provides FNV-1a (Fowler-Noll-Vo) hash implementation.
+// Package fnv provides FNV-1a (Fowler-Noll-Vo) hash implementation with optimized batch processing.
+//
+// Supported Platforms:
+//   - AMD64 (linux/amd64, darwin/amd64, windows/amd64): Parallel batch processing
+//   - ARM64 (linux/arm64, darwin/arm64): Optimized batch processing
+//
+// Unsupported platforms will fail at compile time with a clear error message
+// indicating that AMD64 or ARM64 is required.
+//
 // FNV-1a is a simple, fast hash function with good distribution properties.
-// It's implemented in pure Go and serves as a reliable fallback option.
 package fnv
 
 import (
 	"hash/fnv"
 
-	"github.com/shaia/cuckoofilter/internal/hash/types"
+	"github.com/shaia/simdcuckoofilter/internal/hash/types"
 )
 
 // FNVHash implements the FNV-1a (Fowler-Noll-Vo) hash function.

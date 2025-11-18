@@ -4,9 +4,9 @@ import (
 	"hash/crc32"
 	"testing"
 
-	crc32hash "github.com/shaia/cuckoofilter/internal/hash/crc32"
-	"github.com/shaia/cuckoofilter/internal/hash/fnv"
-	"github.com/shaia/cuckoofilter/internal/hash/xxhash"
+	crc32hash "github.com/shaia/simdcuckoofilter/internal/hash/crc32"
+	"github.com/shaia/simdcuckoofilter/internal/hash/fnv"
+	"github.com/shaia/simdcuckoofilter/internal/hash/xxhash"
 )
 
 // TestHashStrategyString tests the String method for HashStrategy

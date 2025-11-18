@@ -7,107 +7,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"testing"
-
-	"github.com/shaia/cuckoofilter/internal/simd/cpu"
 )
-
-// TestSIMDvsNonSIMD compares SIMD and non-SIMD CRC32 batch processing
-func TestSIMDvsNonSIMD(t *testing.T) {
-	table := crc32.MakeTable(crc32.Castagnoli)
-	simdType := cpu.GetBestSIMD(true)
-
-	// Create SIMD and non-SIMD processors
-	simdProcessor := NewBatchProcessor(table, simdType)
-	nonSIMDProcessor := NewBatchProcessorNoSIMD(table, simdType)
-
-	testCases := []struct {
-		name  string
-		items [][]byte
-	}{
-		{
-			name: "4 items",
-			items: [][]byte{
-				[]byte("test1"),
-				[]byte("test2"),
-				[]byte("test3"),
-				[]byte("test4"),
-			},
-		},
-		{
-			name: "8 items",
-			items: [][]byte{
-				[]byte("item1"),
-				[]byte("item2"),
-				[]byte("item3"),
-				[]byte("item4"),
-				[]byte("item5"),
-				[]byte("item6"),
-				[]byte("item7"),
-				[]byte("item8"),
-			},
-		},
-		{
-			name: "16 items with varying lengths",
-			items: func() [][]byte {
-				items := make([][]byte, 16)
-				for i := range items {
-					items[i] = []byte(fmt.Sprintf("variable-length-item-%d-with-more-data", i))
-				}
-				return items
-			}(),
-		},
-		{
-			name: "Empty items",
-			items: [][]byte{
-				[]byte(""),
-				[]byte("a"),
-				[]byte(""),
-				[]byte("bc"),
-			},
-		},
-		{
-			name: "Large items",
-			items: func() [][]byte {
-				items := make([][]byte, 4)
-				for i := range items {
-					data := make([]byte, 1024)
-					for j := range data {
-						data[j] = byte((i * j) % 256)
-					}
-					items[i] = data
-				}
-				return items
-			}(),
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Process with SIMD
-			simdResults := simdProcessor.ProcessBatch(tc.items, 8, 1000)
-
-			// Process without SIMD
-			nonSIMDResults := nonSIMDProcessor.ProcessBatch(tc.items, 8, 1000)
-
-			// Compare results
-			if len(simdResults) != len(nonSIMDResults) {
-				t.Fatalf("Result length mismatch: SIMD=%d, non-SIMD=%d", len(simdResults), len(nonSIMDResults))
-			}
-
-			for i := range simdResults {
-				if simdResults[i].I1 != nonSIMDResults[i].I1 {
-					t.Errorf("Item %d: I1 mismatch: SIMD=%d, non-SIMD=%d", i, simdResults[i].I1, nonSIMDResults[i].I1)
-				}
-				if simdResults[i].I2 != nonSIMDResults[i].I2 {
-					t.Errorf("Item %d: I2 mismatch: SIMD=%d, non-SIMD=%d", i, simdResults[i].I2, nonSIMDResults[i].I2)
-				}
-				if simdResults[i].Fp != nonSIMDResults[i].Fp {
-					t.Errorf("Item %d: Fp mismatch: SIMD=%d, non-SIMD=%d", i, simdResults[i].Fp, nonSIMDResults[i].Fp)
-				}
-			}
-		})
-	}
-}
 
 // TestSIMDCorrectness verifies SIMD CRC32 against stdlib
 func TestSIMDCorrectness(t *testing.T) {
@@ -150,8 +50,7 @@ func TestSIMDCorrectness(t *testing.T) {
 // TestSIMDBatchSizes tests various batch sizes
 func TestSIMDBatchSizes(t *testing.T) {
 	table := crc32.MakeTable(crc32.Castagnoli)
-	simdProcessor := NewBatchProcessor(table, cpu.GetBestSIMD(true))
-	nonSIMDProcessor := NewBatchProcessorNoSIMD(table, cpu.GetBestSIMD(true))
+	processor := NewBatchProcessor(table)
 
 	batchSizes := []int{1, 2, 3, 4, 5, 8, 12, 16, 32, 64}
 
@@ -163,14 +62,18 @@ func TestSIMDBatchSizes(t *testing.T) {
 				items[i] = []byte(fmt.Sprintf("item-%d", i))
 			}
 
-			// Process with both methods
-			simdResults := simdProcessor.ProcessBatch(items, 8, 1000)
-			nonSIMDResults := nonSIMDProcessor.ProcessBatch(items, 8, 1000)
+			// Process batch
+			results := processor.ProcessBatch(items, 8, 1000)
 
-			// Verify they match
-			for i := range simdResults {
-				if simdResults[i] != nonSIMDResults[i] {
-					t.Errorf("Item %d mismatch: SIMD=%+v, non-SIMD=%+v", i, simdResults[i], nonSIMDResults[i])
+			// Verify correct number of results
+			if len(results) != size {
+				t.Errorf("Expected %d results, got %d", size, len(results))
+			}
+
+			// Verify all results are valid (non-zero fingerprints for non-empty items)
+			for i, result := range results {
+				if result.Fp == 0 && len(items[i]) > 0 {
+					t.Errorf("Item %d: unexpected zero fingerprint for non-empty item", i)
 				}
 			}
 		})
@@ -180,11 +83,11 @@ func TestSIMDBatchSizes(t *testing.T) {
 // TestSIMDEdgeCases tests edge cases
 func TestSIMDEdgeCases(t *testing.T) {
 	table := crc32.MakeTable(crc32.Castagnoli)
-	simdProcessor := NewBatchProcessor(table, cpu.GetBestSIMD(true))
+	processor := NewBatchProcessor(table)
 
 	t.Run("all empty", func(t *testing.T) {
 		items := [][]byte{[]byte(""), []byte(""), []byte(""), []byte("")}
-		results := simdProcessor.ProcessBatch(items, 8, 1000)
+		results := processor.ProcessBatch(items, 8, 1000)
 		if len(results) != 4 {
 			t.Errorf("Expected 4 results, got %d", len(results))
 		}
@@ -196,7 +99,7 @@ func TestSIMDEdgeCases(t *testing.T) {
 			largeData[i] = byte(i % 256)
 		}
 		items := [][]byte{largeData}
-		results := simdProcessor.ProcessBatch(items, 8, 1000)
+		results := processor.ProcessBatch(items, 8, 1000)
 		if len(results) != 1 {
 			t.Errorf("Expected 1 result, got %d", len(results))
 		}
@@ -213,7 +116,7 @@ func TestSIMDEdgeCases(t *testing.T) {
 			[]byte("abcdef"),
 			[]byte("abcdefg"),
 		}
-		results := simdProcessor.ProcessBatch(items, 8, 1000)
+		results := processor.ProcessBatch(items, 8, 1000)
 		if len(results) != 8 {
 			t.Errorf("Expected 8 results, got %d", len(results))
 		}

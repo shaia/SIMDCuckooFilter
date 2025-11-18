@@ -1,6 +1,6 @@
 package cuckoofilter
 
-import "github.com/shaia/cuckoofilter/internal/hash"
+import "github.com/shaia/simdcuckoofilter/internal/hash"
 
 // Options configures a Cuckoo filter
 type Options struct {

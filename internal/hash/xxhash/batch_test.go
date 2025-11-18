@@ -3,7 +3,7 @@ package xxhash
 import (
 	"testing"
 
-	"github.com/shaia/cuckoofilter/internal/hash/types"
+	"github.com/shaia/simdcuckoofilter/internal/hash/types"
 )
 
 // TestBatchConsistencyAllSizes verifies that SIMD batch processing produces

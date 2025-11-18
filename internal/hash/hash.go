@@ -20,7 +20,7 @@
 //   - Assembly optimizations where applicable (*.s files)
 package hash
 
-import "github.com/shaia/cuckoofilter/internal/hash/types"
+import "github.com/shaia/simdcuckoofilter/internal/hash/types"
 
 // HashResult is an alias to types.HashResult for convenience
 type HashResult = types.HashResult

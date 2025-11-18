@@ -5,11 +5,10 @@ import (
 	"hash/crc32"
 	"testing"
 
-	crc32hash "github.com/shaia/cuckoofilter/internal/hash/crc32"
-	"github.com/shaia/cuckoofilter/internal/hash/fnv"
-	"github.com/shaia/cuckoofilter/internal/hash/types"
-	"github.com/shaia/cuckoofilter/internal/hash/xxhash"
-	"github.com/shaia/cuckoofilter/internal/simd/cpu"
+	crc32hash "github.com/shaia/simdcuckoofilter/internal/hash/crc32"
+	"github.com/shaia/simdcuckoofilter/internal/hash/fnv"
+	"github.com/shaia/simdcuckoofilter/internal/hash/types"
+	"github.com/shaia/simdcuckoofilter/internal/hash/xxhash"
 )
 
 func BenchmarkXXHash(b *testing.B) {
@@ -55,20 +54,17 @@ func BenchmarkBatchXXHash(b *testing.B) {
 			}
 		})
 
-		// Benchmark SIMD based on platform
-		simdType := cpu.GetBestSIMD(true)
-		if simdType != cpu.SIMDNone {
-			b.Run(fmt.Sprintf("%s/%ditems", simdType.String(), n), func(b *testing.B) {
-				proc := xxhash.NewBatchHashProcessor(simdType)
-				xxh := xxhash.NewXXHash(8, proc)
-				numBuckets := uint(1024)
-				b.ReportAllocs()
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					_ = xxh.GetIndicesBatch(items, numBuckets)
-				}
-			})
-		}
+		// Benchmark SIMD (automatically uses best available for platform)
+		b.Run(fmt.Sprintf("SIMD/%ditems", n), func(b *testing.B) {
+			proc := xxhash.NewBatchHashProcessor()
+			xxh := xxhash.NewXXHash(8, proc)
+			numBuckets := uint(1024)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = xxh.GetIndicesBatch(items, numBuckets)
+			}
+		})
 	}
 }
 
@@ -116,20 +112,17 @@ func TestBatchXXHashConsistency(t *testing.T) {
 		scalarResults[i] = types.HashResult{I1: i1, I2: i2, Fp: fp}
 	}
 
-	// Test SIMD implementations based on platform
-	simdType := cpu.GetBestSIMD(true)
-	if simdType != cpu.SIMDNone {
-		proc := xxhash.NewBatchHashProcessor(simdType)
-		xxhSIMD := xxhash.NewXXHash(8, proc)
-		simdResults := xxhSIMD.GetIndicesBatch(items, numBuckets)
+	// Test SIMD batch processing (automatically uses best available)
+	proc := xxhash.NewBatchHashProcessor()
+	xxhSIMD := xxhash.NewXXHash(8, proc)
+	simdResults := xxhSIMD.GetIndicesBatch(items, numBuckets)
 
-		for i := range scalarResults {
-			if scalarResults[i] != simdResults[i] {
-				t.Errorf("%s item %d: scalar=%+v, simd=%+v", simdType.String(), i, scalarResults[i], simdResults[i])
-			}
+	for i := range scalarResults {
+		if scalarResults[i] != simdResults[i] {
+			t.Errorf("SIMD item %d: scalar=%+v, simd=%+v", i, scalarResults[i], simdResults[i])
 		}
-		t.Logf("SIMD consistency test passed for %s", simdType.String())
 	}
+	t.Log("SIMD consistency test passed")
 }
 
 // BenchmarkCRC32Hash benchmarks CRC32C hash performance
@@ -242,9 +235,8 @@ func BenchmarkBatchFNVHash(b *testing.B) {
 		})
 
 		// Benchmark FNV batch processor (AMD64 has parallel implementation)
-		simdType := cpu.GetBestSIMD(true)
 		b.Run(fmt.Sprintf("Batch/%ditems", n), func(b *testing.B) {
-			proc := fnv.NewBatchProcessor(simdType)
+			proc := fnv.NewBatchProcessor()
 			fnvHash := fnv.NewFNVHash(8, proc)
 			numBuckets := uint(1024)
 			b.ReportAllocs()

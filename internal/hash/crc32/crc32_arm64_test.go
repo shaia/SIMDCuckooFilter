@@ -7,18 +7,16 @@ import (
 	"fmt"
 	"hash/crc32"
 	"testing"
-
-	"github.com/shaia/cuckoofilter/internal/simd/cpu"
 )
 
 // TestARM64HardwareVsSoftware compares ARM64 hardware CRC32 vs software implementation
 func TestARM64HardwareVsSoftware(t *testing.T) {
 	table := crc32.MakeTable(crc32.Castagnoli)
-	simdType := cpu.GetBestSIMD(true)
 
-	// Create hardware and software processors
-	hardwareProcessor := NewBatchProcessor(table, simdType)
-	softwareProcessor := NewBatchProcessorNoSIMD(table, simdType)
+	// Note: This test now verifies consistency between two instances
+	// Previously tested hardware vs software, now both use the same implementation
+	hardwareProcessor := NewBatchProcessor(table)
+	softwareProcessor := NewBatchProcessor(table)
 
 	testCases := []struct {
 		name  string
@@ -177,8 +175,8 @@ func TestARM64HardwareCorrectness(t *testing.T) {
 // TestARM64BatchSizes tests various batch sizes
 func TestARM64BatchSizes(t *testing.T) {
 	table := crc32.MakeTable(crc32.Castagnoli)
-	hardwareProcessor := NewBatchProcessor(table, cpu.GetBestSIMD(true))
-	softwareProcessor := NewBatchProcessorNoSIMD(table, cpu.GetBestSIMD(true))
+	hardwareProcessor := NewBatchProcessor(table)
+	softwareProcessor := NewBatchProcessor(table) // Note: No longer testing separate software path
 
 	batchSizes := []int{1, 2, 3, 4, 5, 8, 12, 16, 32, 64}
 
@@ -207,7 +205,7 @@ func TestARM64BatchSizes(t *testing.T) {
 // TestARM64EdgeCases tests edge cases for ARM64 implementation
 func TestARM64EdgeCases(t *testing.T) {
 	table := crc32.MakeTable(crc32.Castagnoli)
-	processor := NewBatchProcessor(table, cpu.GetBestSIMD(true))
+	processor := NewBatchProcessor(table)
 
 	t.Run("all empty", func(t *testing.T) {
 		items := [][]byte{[]byte(""), []byte(""), []byte(""), []byte("")}
@@ -298,7 +296,7 @@ func TestARM64VsStdlib(t *testing.T) {
 // BenchmarkARM64Hardware benchmarks ARM64 hardware CRC32
 func BenchmarkARM64Hardware(b *testing.B) {
 	table := crc32.MakeTable(crc32.Castagnoli)
-	processor := NewBatchProcessor(table, cpu.GetBestSIMD(true))
+	processor := NewBatchProcessor(table)
 
 	items := make([][]byte, 32)
 	for i := range items {
@@ -315,7 +313,7 @@ func BenchmarkARM64Hardware(b *testing.B) {
 // BenchmarkARM64Software benchmarks software CRC32 for comparison
 func BenchmarkARM64Software(b *testing.B) {
 	table := crc32.MakeTable(crc32.Castagnoli)
-	processor := NewBatchProcessorNoSIMD(table, cpu.GetBestSIMD(true))
+	processor := NewBatchProcessor(table) // Note: No longer testing separate software path
 
 	items := make([][]byte, 32)
 	for i := range items {

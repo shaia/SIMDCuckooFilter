@@ -5,7 +5,7 @@
 //   - ARM64: Optimized assembly (NEON batch processing planned for future)
 package xxhash
 
-import "github.com/shaia/cuckoofilter/internal/hash/types"
+import "github.com/shaia/simdcuckoofilter/internal/hash/types"
 
 // XXHash is a SIMD-optimized XXHash64 implementation.
 // For production use, this provides excellent performance across architectures.

@@ -1,3 +1,3 @@
-module github.com/shaia/cuckoofilter
+module github.com/shaia/simdcuckoofilter
 
 go 1.24.0

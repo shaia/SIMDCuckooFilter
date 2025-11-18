@@ -3,10 +3,9 @@ package hash
 import (
 	"testing"
 
-	crc32hash "github.com/shaia/cuckoofilter/internal/hash/crc32"
-	fnvhash "github.com/shaia/cuckoofilter/internal/hash/fnv"
-	"github.com/shaia/cuckoofilter/internal/hash/xxhash"
-	"github.com/shaia/cuckoofilter/internal/simd/cpu"
+	crc32hash "github.com/shaia/simdcuckoofilter/internal/hash/crc32"
+	fnvhash "github.com/shaia/simdcuckoofilter/internal/hash/fnv"
+	"github.com/shaia/simdcuckoofilter/internal/hash/xxhash"
 )
 
 // TestNewHashFunction verifies that NewHashFunction creates the correct hash type
@@ -49,30 +48,23 @@ func TestNewHashFunction(t *testing.T) {
 	}
 }
 
-// TestNewHashFunctionWithSIMD verifies that NewHashFunctionWithSIMD creates
-// the correct hash type with SIMD support enabled.
+// TestNewHashFunctionWithSIMD verifies that NewHashFunction creates
+// the correct hash type with automatic SIMD support.
 func TestNewHashFunctionWithSIMD(t *testing.T) {
-	// Get the best SIMD type available on this platform
-	simdType := cpu.GetBestSIMD(true)
-
 	testCases := []struct {
 		name     string
 		strategy HashStrategy
-		simdType cpu.SIMDType
 	}{
-		{"CRC32_NoSIMD", HashStrategyCRC32, cpu.SIMDNone},
-		{"CRC32_WithSIMD", HashStrategyCRC32, simdType},
-		{"XXHash_NoSIMD", HashStrategyXXHash, cpu.SIMDNone},
-		{"XXHash_WithSIMD", HashStrategyXXHash, simdType},
-		{"FNV_NoSIMD", HashStrategyFNV, cpu.SIMDNone},
-		{"FNV_WithSIMD", HashStrategyFNV, simdType},
+		{"CRC32", HashStrategyCRC32},
+		{"XXHash", HashStrategyXXHash},
+		{"FNV", HashStrategyFNV},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := NewHashFunctionWithSIMD(tc.strategy, 8, tc.simdType)
+			h := NewHashFunction(tc.strategy, 8)
 			if h == nil {
-				t.Fatal("NewHashFunctionWithSIMD returned nil")
+				t.Fatal("NewHashFunction returned nil")
 			}
 
 			// Verify the hash can perform basic operations
@@ -110,10 +102,8 @@ func TestNewHashFunctionWithSIMD(t *testing.T) {
 }
 
 // TestFactoryBatchProcessing verifies that batch processing works correctly
-// for hashes created by the factory with SIMD support.
+// for hashes created by the factory.
 func TestFactoryBatchProcessing(t *testing.T) {
-	simdType := cpu.GetBestSIMD(true)
-
 	testCases := []struct {
 		name     string
 		strategy HashStrategy
@@ -133,8 +123,8 @@ func TestFactoryBatchProcessing(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create hash with SIMD support
-			h := NewHashFunctionWithSIMD(tc.strategy, 8, simdType)
+			// Create hash with automatic SIMD support
+			h := NewHashFunction(tc.strategy, 8)
 
 			// Get individual results
 			individualResults := make([]struct{ i1, i2 uint; fp byte }, len(items))

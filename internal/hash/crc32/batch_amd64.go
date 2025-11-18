@@ -6,41 +6,27 @@ package crc32hash
 import (
 	"hash/crc32"
 
-	"github.com/shaia/cuckoofilter/internal/hash/types"
-	"github.com/shaia/cuckoofilter/internal/simd/cpu"
+	"github.com/shaia/simdcuckoofilter/internal/hash/types"
 )
 
 // BatchProcessor handles optimized batch CRC32 hashing for AMD64.
-// Uses SIMD assembly for true parallel processing when available,
-// falls back to goroutine-based parallelism otherwise.
+// Uses hardware-accelerated CRC32C and parallel processing.
 type BatchProcessor struct {
-	table    *crc32.Table
-	simdType cpu.SIMDType
-	useSIMD  bool // Whether to use SIMD assembly implementation
+	table *crc32.Table
 }
 
-// NewBatchProcessor creates a new CRC32 batch processor
-func NewBatchProcessor(table *crc32.Table, simdType cpu.SIMDType) *BatchProcessor {
+// NewBatchProcessor creates a new CRC32 batch processor.
+// Uses hardware-accelerated CRC32C (SSE4.2) with parallel processing.
+func NewBatchProcessor(table *crc32.Table) *BatchProcessor {
 	return &BatchProcessor{
-		table:    table,
-		simdType: simdType,
-		useSIMD:  true, // Enable SIMD by default
+		table: table,
 	}
 }
 
-// NewBatchProcessorNoSIMD creates a batch processor without SIMD (for comparison/testing)
-func NewBatchProcessorNoSIMD(table *crc32.Table, simdType cpu.SIMDType) *BatchProcessor {
-	return &BatchProcessor{
-		table:    table,
-		simdType: simdType,
-		useSIMD:  false, // Disable SIMD
-	}
-}
-
-// ProcessBatch processes multiple items using optimized CRC32.
+// ProcessBatch processes multiple items using hardware-accelerated CRC32C.
 //
 // Performance characteristics:
-//   - Uses Go's hardware-accelerated CRC32 (SSE4.2 instruction)
+//   - Uses Go's hardware-accelerated CRC32C (SSE4.2 instruction)
 //   - Processes items in parallel using separate goroutines for better throughput
 //   - Automatically balances work across available CPU cores
 //
@@ -48,11 +34,6 @@ func NewBatchProcessorNoSIMD(table *crc32.Table, simdType cpu.SIMDType) *BatchPr
 // so we focus on parallel processing rather than custom SIMD assembly.
 func (p *BatchProcessor) ProcessBatch(items [][]byte, fingerprintBits, numBuckets uint) []types.HashResult {
 	results := make([]types.HashResult, len(items))
-
-	// Use SIMD assembly if enabled and batch is large enough
-	if p.useSIMD && len(items) >= 4 {
-		return p.processBatchSIMD(items, fingerprintBits, numBuckets)
-	}
 
 	// For small-to-medium batches, sequential processing is faster
 	// Goroutine overhead is ~1-2µs per goroutine, which exceeds the benefit for small batches
@@ -113,22 +94,3 @@ func (p *BatchProcessor) ProcessBatch(items [][]byte, fingerprintBits, numBucket
 	return results
 }
 
-// processBatchSIMD uses custom assembly to process batches with SIMD CRC32C instructions
-func (p *BatchProcessor) processBatchSIMD(items [][]byte, fingerprintBits, numBuckets uint) []types.HashResult {
-	results := make([]types.HashResult, len(items))
-	crc32Results := make([]uint32, len(items))
-
-	// Call assembly function to compute CRC32 values
-	batchCRC32SIMD(items, crc32Results)
-
-	// Convert CRC32 values to hash results
-	for i, hashVal := range crc32Results {
-		fp := fingerprint(uint64(hashVal), fingerprintBits)
-		i1 := uint(hashVal % uint32(numBuckets))
-		fpHash := crc32.Checksum([]byte{fp}, p.table)
-		i2 := (uint64(i1) ^ uint64(fpHash)) % uint64(numBuckets)
-		results[i] = types.HashResult{I1: i1, I2: uint(i2), Fp: fp}
-	}
-
-	return results
-}
