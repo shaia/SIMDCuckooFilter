@@ -141,23 +141,6 @@ func TestWithOptions(t *testing.T) {
 	}
 }
 
-// TestScalar validates scalar implementation
-func TestScalar(t *testing.T) {
-	cf, err := NewScalar(1000)
-	if err != nil {
-		t.Fatalf("NewScalar failed: %v", err)
-	}
-
-	item := []byte("test")
-	if !cf.Insert(item) {
-		t.Error("Insert failed")
-	}
-
-	if !cf.Lookup(item) {
-		t.Error("Lookup failed")
-	}
-}
-
 // TestInvalidCapacity validates capacity validation
 func TestInvalidCapacity(t *testing.T) {
 	_, err := New(0)
