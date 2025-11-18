@@ -45,7 +45,7 @@ func (o *Options) Validate() error {
 
 // WithBucketSize sets the number of fingerprints per bucket (2, 4, 8, 16, 32, or 64)
 // Larger sizes provide better load factors and benefit more from SIMD optimizations.
-// Recommended: 8 for balanced performance, 16 for optimal SSE2, 32 for maximum load factor, 64 for AVX2 and cache line alignment.
+// Recommended: 8 for balanced performance, 32 for maximum load factor, 64 for AVX2 and cache line alignment.
 func WithBucketSize(size uint) Option {
 	return func(o *Options) {
 		o.bucketSize = size
@@ -82,7 +82,7 @@ func WithSIMD(enabled bool) Option {
 	}
 }
 
-// WithAVX2 sets preference for AVX2 over SSE2
+// WithAVX2 enables or disables AVX2 optimizations
 func WithAVX2(prefer bool) Option {
 	return func(o *Options) {
 		o.preferAVX2 = prefer

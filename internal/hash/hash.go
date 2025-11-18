@@ -10,7 +10,7 @@
 // # Architecture
 //
 // The package is organized into subpackages for each hash algorithm:
-//   - xxhash: XXHash64 with SIMD optimization (AVX2/SSE2)
+//   - xxhash: XXHash64 with SIMD optimization (AVX2)
 //   - crc32: CRC32C with hardware acceleration
 //   - fnv: FNV-1a hash
 //
