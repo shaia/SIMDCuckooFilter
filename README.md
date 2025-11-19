@@ -67,7 +67,8 @@ filter, err := cuckoofilter.New(10000,
     cuckoofilter.WithFingerprintSize(8),  // 8-bit fingerprints (max supported)
     cuckoofilter.WithBucketSize(32),      // Larger buckets for better SIMD utilization
     cuckoofilter.WithMaxKicks(500),       // Relocation attempts before failure
-    cuckoofilter.WithHashStrategy(hash.HashStrategyXXHash), // Hash function
+    // Note: Hash strategy configuration currently requires internal package access
+    // Default is FNV-1a
 )
 ```
 
@@ -76,10 +77,12 @@ filter, err := cuckoofilter.New(10000,
 | Option | Description | Default | Range |
 |--------|-------------|---------|-------|
 | `WithFingerprintSize` | Bits per fingerprint | 8 | 1, 2, 4, 8 |
-| `WithBucketSize` | Fingerprints per bucket | 4 | 4-64 |
+| `WithBucketSize` | Fingerprints per bucket | 4 | 2, 4, 8, 16, 32, 64 |
 | `WithMaxKicks` | Relocation attempts | 500 | 1-1000 |
-| `WithHashStrategy` | Hash function | XXHash64 | XXHash64, CRC32C, FNV-1a |
+| `WithHashStrategy` | Hash function (⚠️ requires internal package) | FNV-1a | XXHash64, CRC32C, FNV-1a |
 | `WithBatchSize` | Batch processing size | 32 | 1-256 |
+
+**Note**: `WithHashStrategy` currently requires importing the internal hash package, which is not accessible to external users. This is a known API limitation. The default FNV-1a strategy works well for most use cases.
 
 ## Batch Operations
 
@@ -122,7 +125,7 @@ deleted := filter.DeleteBatch(items)
 - `Count() uint` - Number of items in filter
 - `Capacity() uint` - Maximum capacity
 - `LoadFactor() float64` - Current load (0.0 to 1.0)
-- `OptimalBatchSize() uint` - Recommended batch size
+- `OptimalBatchSize() int` - Recommended batch size
 - `Reset()` - Clear all items
 
 ## Architecture
@@ -143,9 +146,9 @@ deleted := filter.DeleteBatch(items)
 
 | Strategy | Speed | Quality | Use Case |
 |----------|-------|---------|----------|
-| XXHash64 | Fast | Excellent | Default, general purpose |
+| FNV-1a | Moderate | Good | Default, compatibility |
+| XXHash64 | Fast | Excellent | General purpose, better distribution |
 | CRC32C | Fastest | Good | High-throughput scenarios |
-| FNV-1a | Moderate | Good | Compatibility |
 
 ## Memory Usage
 
