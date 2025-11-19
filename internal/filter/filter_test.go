@@ -247,6 +247,9 @@ func TestFilterConcurrentLookup(t *testing.T) {
 	var wg sync.WaitGroup
 	numGoroutines := 10
 
+	// Channel to collect failures from goroutines (thread-safe)
+	failures := make(chan string, numGoroutines*numItems)
+
 	for g := 0; g < numGoroutines; g++ {
 		wg.Add(1)
 		go func() {
@@ -254,13 +257,19 @@ func TestFilterConcurrentLookup(t *testing.T) {
 			for i := 0; i < numItems; i++ {
 				item := []byte(fmt.Sprintf("item-%d", i))
 				if !f.Lookup(item) {
-					t.Errorf("Failed to find item-%d", i)
+					failures <- fmt.Sprintf("Failed to find item-%d", i)
 				}
 			}
 		}()
 	}
 
 	wg.Wait()
+	close(failures)
+
+	// Report any failures after goroutines complete (thread-safe)
+	for failure := range failures {
+		t.Error(failure)
+	}
 }
 
 // TestFilterBatchInsert tests batch insert operation
