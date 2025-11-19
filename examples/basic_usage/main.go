@@ -11,7 +11,7 @@ func main() {
 	// Create a new Cuckoo filter with capacity for 10,000 items
 	// Uses SIMD-optimized assembly for bucket operations:
 	// - AMD64: AVX2 instructions (32 bytes parallel)
-	// - ARM64: Scalar fallback (NEON assembly TODO)
+	// - ARM64: NEON instructions (16 bytes parallel)
 	cf, err := cuckoofilter.New(10000)
 	if err != nil {
 		log.Fatalf("Failed to create filter: %v", err)
