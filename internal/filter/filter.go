@@ -78,29 +78,24 @@ func (f *simdFilter) relocate(i1, i2 uint, fp byte) bool {
 	currentFp := fp
 
 	for i := uint(0); i < f.maxKicks; i++ {
-		// Swap with random entry in bucket
-		count := f.buckets[index].Count()
-		if count == 0 {
-			// Bucket is empty, shouldn't happen but handle gracefully
-			count = 1
-		}
-		pos := uint(rand.Intn(int(count)))
-		if pos >= f.bucketSize { // Safety check for bucket size
-			pos = 0
-		}
+		// Randomly select a position in the bucket (standard cuckoo hashing)
+		pos := uint(rand.Intn(int(f.bucketSize)))
 
+		// Swap the fingerprint at the random position
 		oldFp := f.buckets[index].Swap(pos, currentFp)
 		if oldFp == 0 {
+			// Found an empty slot
 			f.numItems++
 			return true
 		}
 
+		// Continue with the evicted fingerprint
 		currentFp = oldFp
 
-		// Calculate alternative index
+		// Calculate alternative index for the evicted fingerprint
 		index = f.hash.GetAltIndex(index, currentFp, f.numBuckets)
 
-		// Try to insert
+		// Try to insert the evicted fingerprint into its alternative bucket
 		if f.buckets[index].Insert(currentFp) {
 			f.numItems++
 			return true
