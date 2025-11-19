@@ -1,6 +1,9 @@
 package cuckoofilter
 
-import "github.com/shaia/simdcuckoofilter/internal/filter"
+import (
+	"github.com/shaia/simdcuckoofilter/internal/filter"
+	"github.com/shaia/simdcuckoofilter/internal/hash"
+)
 
 // CuckooFilter is a probabilistic data structure for set membership testing
 type CuckooFilter interface {
@@ -75,7 +78,7 @@ func New(capacity uint, opts ...Option) (CuckooFilter, error) {
 		options.bucketSize,
 		options.fingerprintBits,
 		options.maxKicks,
-		options.hashStrategy,
+		hash.HashStrategy(options.hashStrategy),
 		options.batchSize,
 	)
 }

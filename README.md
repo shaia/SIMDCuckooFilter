@@ -67,22 +67,21 @@ filter, err := cuckoofilter.New(10000,
     cuckoofilter.WithFingerprintSize(8),  // 8-bit fingerprints (max supported)
     cuckoofilter.WithBucketSize(32),      // Larger buckets for better SIMD utilization
     cuckoofilter.WithMaxKicks(500),       // Relocation attempts before failure
-    // Note: Hash strategy configuration currently requires internal package access
-    // Default is FNV-1a
+    cuckoofilter.WithXXHash(),            // Use XXHash64 for better performance
 )
 ```
 
 ### Configuration Options
 
-| Option | Description | Default | Range |
+| Option | Description | Default | Notes |
 |--------|-------------|---------|-------|
-| `WithFingerprintSize` | Bits per fingerprint | 8 | 1, 2, 4, 8 |
-| `WithBucketSize` | Fingerprints per bucket | 4 | 2, 4, 8, 16, 32, 64 |
-| `WithMaxKicks` | Relocation attempts | 500 | 1-1000 |
-| `WithHashStrategy` | Hash function (⚠️ requires internal package) | FNV-1a | XXHash64, CRC32C, FNV-1a |
-| `WithBatchSize` | Batch processing size | 32 | 1-256 |
-
-**Note**: `WithHashStrategy` currently requires importing the internal hash package, which is not accessible to external users. This is a known API limitation. The default FNV-1a strategy works well for most use cases.
+| `WithFingerprintSize(bits)` | Bits per fingerprint | 8 | Valid: 1, 2, 4, 8 |
+| `WithBucketSize(size)` | Fingerprints per bucket | 4 | Valid: 2, 4, 8, 16, 32, 64 |
+| `WithMaxKicks(kicks)` | Relocation attempts | 500 | Range: 1-1000 |
+| `WithFNVHash()` | Use FNV-1a hash (default) | ✓ | Moderate speed, good distribution |
+| `WithXXHash()` | Use XXHash64 | | Fast, excellent distribution |
+| `WithCRC32Hash()` | Use CRC32C | | Fastest, hardware-accelerated |
+| `WithBatchSize(size)` | Batch processing size | 32 | Range: 1-256 |
 
 ## Batch Operations
 

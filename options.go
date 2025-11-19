@@ -1,13 +1,11 @@
 package cuckoofilter
 
-import "github.com/shaia/simdcuckoofilter/internal/hash"
-
 // Options configures a Cuckoo filter
 type Options struct {
 	bucketSize      uint
 	fingerprintBits uint
 	maxKicks        uint
-	hashStrategy    hash.HashStrategy
+	hashStrategy    hashStrategy
 	preferSIMD      bool
 	preferAVX2      bool
 	batchSize       uint
@@ -22,7 +20,7 @@ func defaultOptions() Options {
 		bucketSize:      4,
 		fingerprintBits: 8,
 		maxKicks:        500,
-		hashStrategy:    hash.HashStrategyFNV,
+		hashStrategy:    hashStrategyFNV,
 		preferSIMD:      true,
 		preferAVX2:      true,
 		batchSize:       32,
@@ -65,13 +63,6 @@ func WithFingerprintSize(bits uint) Option {
 func WithMaxKicks(kicks uint) Option {
 	return func(o *Options) {
 		o.maxKicks = kicks
-	}
-}
-
-// WithHashStrategy sets the hash function strategy
-func WithHashStrategy(strategy hash.HashStrategy) Option {
-	return func(o *Options) {
-		o.hashStrategy = strategy
 	}
 }
 
