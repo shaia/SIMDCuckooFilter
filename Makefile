@@ -1,27 +1,45 @@
 # CuckooFilter Makefile
 # Build automation for the CuckooFilter project
 
-.PHONY: help build test test-verbose test-short bench clean coverage lint vet fmt check-fmt
+.PHONY: help all build build-all build-linux-amd64 build-linux-arm64 build-darwin-amd64 build-darwin-arm64
+.PHONY: test test-verbose test-short test-race test-simd test-amd64 test-arm64
+.PHONY: bench bench-all bench-insert bench-lookup bench-batch bench-hash
+.PHONY: coverage coverage-html
+.PHONY: vet fmt check-fmt lint
+.PHONY: clean clean-all ci pre-commit
 
-# Default target
+# Default target - run standard checks
+all: fmt vet test
+	@echo "All checks passed"
+
+# Help target
 help:
 	@echo "CuckooFilter Build Automation"
 	@echo ""
 	@echo "Available targets:"
+	@echo "  all            - Run fmt, vet, and test (default)"
 	@echo "  build          - Build the project"
 	@echo "  test           - Run all tests"
 	@echo "  test-verbose   - Run tests with verbose output"
 	@echo "  test-short     - Run short tests only"
+	@echo "  test-race      - Run tests with race detector"
 	@echo "  test-simd      - Run SIMD-specific tests"
-	@echo "  bench          - Run benchmarks"
+	@echo "  bench          - Run all benchmarks"
 	@echo "  bench-all      - Run all benchmarks with multiple runs"
+	@echo "  bench-insert   - Run insert-related benchmarks"
+	@echo "  bench-lookup   - Run lookup-related benchmarks"
+	@echo "  bench-batch    - Run batch operation benchmarks"
+	@echo "  bench-hash     - Run hash strategy benchmarks"
 	@echo "  coverage       - Generate test coverage report"
 	@echo "  coverage-html  - Generate HTML coverage report"
 	@echo "  lint           - Run golangci-lint (requires golangci-lint)"
 	@echo "  vet            - Run go vet"
 	@echo "  fmt            - Format code with go fmt"
 	@echo "  check-fmt      - Check if code is formatted"
-	@echo "  clean          - Clean build artifacts"
+	@echo "  ci             - Run all CI checks (check-fmt, vet, test, coverage)"
+	@echo "  pre-commit     - Quick pre-commit checks (fmt, vet, test-short)"
+	@echo "  clean          - Clean build artifacts (coverage files)"
+	@echo "  clean-all      - Deep clean including Go caches (affects all projects)"
 	@echo ""
 	@echo "Cross-compilation targets:"
 	@echo "  build-linux-amd64   - Build for Linux AMD64"
@@ -71,9 +89,13 @@ test-short:
 	@echo "Running short tests..."
 	go test ./... -short -count=1
 
+test-race:
+	@echo "Running tests with race detector..."
+	go test -race ./... -count=1
+
 test-simd:
 	@echo "Running SIMD-specific tests..."
-	go test -v -run ".*SIMD.*" -count=1
+	go test -v -run=.*SIMD.* -count=1 ./...
 
 test-amd64:
 	@echo "Running tests for AMD64..."
@@ -102,7 +124,7 @@ bench-lookup:
 
 bench-batch:
 	@echo "Running batch benchmarks..."
-	go test -bench=BenchmarkBatch.* -benchmem -count=1 ./...
+	go test -bench=Benchmark.*Batch.* -benchmem -count=1 ./...
 
 bench-hash:
 	@echo "Running hash strategy benchmarks..."
@@ -142,7 +164,14 @@ lint:
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -f coverage.out coverage.html
+	go clean
+
+# Deep clean - clears global Go caches (affects all projects)
+clean-all:
+	@echo "Deep cleaning (clears global Go caches)..."
+	rm -f coverage.out coverage.html
 	go clean -cache -testcache
+	@echo "Warning: Global Go build and test caches have been cleared"
 
 # CI target - runs all checks
 ci: check-fmt vet test coverage
