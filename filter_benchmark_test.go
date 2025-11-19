@@ -3,8 +3,6 @@ package cuckoofilter
 import (
 	"fmt"
 	"testing"
-
-	"github.com/shaia/simdcuckoofilter/internal/hash"
 )
 
 // BenchmarkInsert benchmarks insert operations
@@ -83,15 +81,18 @@ func BenchmarkLookupBatch(b *testing.B) {
 
 // BenchmarkHashStrategies benchmarks different hash strategies
 func BenchmarkHashStrategies(b *testing.B) {
-	strategies := []hash.HashStrategy{
-		hash.HashStrategyXXHash,
-		hash.HashStrategyCRC32,
-		hash.HashStrategyFNV,
+	tests := []struct {
+		name   string
+		option Option
+	}{
+		{"XXHash64", WithXXHash()},
+		{"CRC32C", WithCRC32Hash()},
+		{"FNV-1a", WithFNVHash()},
 	}
 
-	for _, strategy := range strategies {
-		b.Run(strategy.String(), func(b *testing.B) {
-			cf, _ := New(100000, WithHashStrategy(strategy))
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			cf, _ := New(100000, tt.option)
 			item := []byte("benchmark-item")
 
 			b.ResetTimer()

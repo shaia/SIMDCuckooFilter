@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"runtime"
 	"testing"
-
-	"github.com/shaia/simdcuckoofilter/internal/hash"
 )
 
 // TestNew validates basic filter creation
@@ -124,7 +122,7 @@ func TestReset(t *testing.T) {
 func TestWithOptions(t *testing.T) {
 	cf, err := New(1000,
 		WithFingerprintSize(8), // Maximum supported fingerprint size
-		WithHashStrategy(hash.HashStrategyCRC32),
+		WithCRC32Hash(),
 		WithMaxKicks(500),
 	)
 
@@ -252,27 +250,30 @@ func TestLargeItems(t *testing.T) {
 
 // TestAllHashStrategies validates all supported hash strategies
 func TestAllHashStrategies(t *testing.T) {
-	strategies := []hash.HashStrategy{
-		hash.HashStrategyXXHash,
-		hash.HashStrategyCRC32,
-		hash.HashStrategyFNV,
+	tests := []struct {
+		name   string
+		option Option
+	}{
+		{"XXHash64", WithXXHash()},
+		{"CRC32C", WithCRC32Hash()},
+		{"FNV-1a", WithFNVHash()},
 	}
 
-	for _, strategy := range strategies {
-		t.Run(strategy.String(), func(t *testing.T) {
-			cf, err := New(1000, WithHashStrategy(strategy))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cf, err := New(1000, tt.option)
 			if err != nil {
-				t.Fatalf("New failed with %s: %v", strategy, err)
+				t.Fatalf("New failed with %s: %v", tt.name, err)
 			}
 
-			item := []byte(fmt.Sprintf("test-%s", strategy))
+			item := []byte(fmt.Sprintf("test-%s", tt.name))
 
 			if !cf.Insert(item) {
-				t.Errorf("Insert failed with %s", strategy)
+				t.Errorf("Insert failed with %s", tt.name)
 			}
 
 			if !cf.Lookup(item) {
-				t.Errorf("Lookup failed with %s", strategy)
+				t.Errorf("Lookup failed with %s", tt.name)
 			}
 		})
 	}
@@ -485,17 +486,20 @@ func TestBatchDelete(t *testing.T) {
 
 // TestBatchWithDifferentHashStrategies tests batch operations with different hash algorithms
 func TestBatchWithDifferentHashStrategies(t *testing.T) {
-	strategies := []hash.HashStrategy{
-		hash.HashStrategyXXHash,
-		hash.HashStrategyCRC32,
-		hash.HashStrategyFNV,
+	tests := []struct {
+		name   string
+		option Option
+	}{
+		{"XXHash64", WithXXHash()},
+		{"CRC32C", WithCRC32Hash()},
+		{"FNV-1a", WithFNVHash()},
 	}
 
-	for _, strategy := range strategies {
-		t.Run(strategy.String(), func(t *testing.T) {
-			cf, err := New(1000, WithHashStrategy(strategy))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cf, err := New(1000, tt.option)
 			if err != nil {
-				t.Fatalf("New failed with %s: %v", strategy, err)
+				t.Fatalf("New failed with %s: %v", tt.name, err)
 			}
 
 			bf, ok := cf.(BatchFilter)
@@ -505,14 +509,14 @@ func TestBatchWithDifferentHashStrategies(t *testing.T) {
 
 			items := make([][]byte, 16)
 			for i := range items {
-				items[i] = []byte(fmt.Sprintf("item-%s-%d", strategy, i))
+				items[i] = []byte(fmt.Sprintf("item-%s-%d", tt.name, i))
 			}
 
 			// Batch insert
 			results := bf.InsertBatch(items)
 			for i, success := range results {
 				if !success {
-					t.Errorf("Batch insert failed for item %d with %s", i, strategy)
+					t.Errorf("Batch insert failed for item %d with %s", i, tt.name)
 				}
 			}
 
@@ -520,7 +524,7 @@ func TestBatchWithDifferentHashStrategies(t *testing.T) {
 			found := bf.LookupBatch(items)
 			for i, exists := range found {
 				if !exists {
-					t.Errorf("Batch lookup failed for item %d with %s", i, strategy)
+					t.Errorf("Batch lookup failed for item %d with %s", i, tt.name)
 				}
 			}
 		})
