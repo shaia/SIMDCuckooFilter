@@ -65,13 +65,13 @@ GLOBL avx2_shift_37<>(SB), RODATA, $32
 // processBatchXXHashAVX2 computes XXHash64 for multiple items in batch using AVX2
 // Processes 4 items in parallel using 256-bit SIMD registers
 // func processBatchXXHashAVX2(items [][]byte, results []HashResult, fingerprintBits, numBuckets uint)
-TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $136-72
+TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $136-64
     // Load arguments
     MOVQ items_base+0(FP), DI        // DI = items slice base
     MOVQ items_len+8(FP), SI         // SI = number of items
-    MOVQ results_base+32(FP), R10    // R10 = results slice base
-    MOVQ fingerprintBits+56(FP), R11 // R11 = fingerprintBits
-    MOVQ numBuckets+64(FP), R12      // R12 = numBuckets
+    MOVQ results_base+24(FP), R10    // R10 = results slice base
+    MOVQ fingerprintBits+48(FP), R11 // R11 = fingerprintBits
+    MOVQ numBuckets+56(FP), R12      // R12 = numBuckets
 
     // Save non-volatile state to stack
     MOVQ R11, 0(SP)   // fingerprintBits
