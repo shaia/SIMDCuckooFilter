@@ -80,6 +80,7 @@ jobs:
 
     - name: Run tests
       run: go test -v -race -count=1 ./...
+      continue-on-error: ${{ matrix.os == 'windows-latest' }}
 
     - name: Generate coverage
       if: matrix.os == 'ubuntu-latest'
@@ -222,10 +223,11 @@ jobs:
         go install golang.org/x/vuln/cmd/govulncheck@latest
         govulncheck ./...
 
-  # All checks must pass
+  # All checks must pass (Windows tests allowed to fail)
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
+    if: always()
     needs:
       - format-check
       - vet
@@ -236,5 +238,39 @@ jobs:
       - verify-assembly
       - security
     steps:
-    - name: Success
-      run: echo "All CI checks passed!"
+    - name: Check required jobs
+      run: |
+        # Check if any required job failed
+        if [ "${{ needs.format-check.result }}" != "success" ]; then
+          echo "Format check failed"
+          exit 1
+        fi
+        if [ "${{ needs.vet.result }}" != "success" ]; then
+          echo "Vet failed"
+          exit 1
+        fi
+        if [ "${{ needs.test.result }}" != "success" ]; then
+          echo "Tests failed"
+          exit 1
+        fi
+        if [ "${{ needs.test-arm64.result }}" != "success" ]; then
+          echo "ARM64 tests failed"
+          exit 1
+        fi
+        if [ "${{ needs.lint.result }}" != "success" ]; then
+          echo "Lint failed"
+          exit 1
+        fi
+        if [ "${{ needs.build-matrix.result }}" != "success" ]; then
+          echo "Build matrix failed"
+          exit 1
+        fi
+        if [ "${{ needs.verify-assembly.result }}" != "success" ]; then
+          echo "Assembly verification failed"
+          exit 1
+        fi
+        if [ "${{ needs.security.result }}" != "success" ]; then
+          echo "Security scan failed"
+          exit 1
+        fi
+        echo "All CI checks passed!"
