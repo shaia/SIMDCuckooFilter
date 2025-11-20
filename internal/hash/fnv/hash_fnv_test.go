@@ -184,10 +184,16 @@ func TestFNVBatchProcessing(t *testing.T) {
 	numBuckets := uint(1024)
 
 	// Get individual results
-	individualResults := make([]struct{ i1, i2 uint; fp byte }, len(items))
+	individualResults := make([]struct {
+		i1, i2 uint
+		fp     byte
+	}, len(items))
 	for i, item := range items {
 		i1, i2, fp := h.GetIndices(item, numBuckets)
-		individualResults[i] = struct{ i1, i2 uint; fp byte }{i1, i2, fp}
+		individualResults[i] = struct {
+			i1, i2 uint
+			fp     byte
+		}{i1, i2, fp}
 	}
 
 	// Get batch results

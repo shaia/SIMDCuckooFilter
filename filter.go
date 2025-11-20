@@ -56,9 +56,10 @@ type BatchFilter interface {
 //   - ARM64: NEON
 //
 // Examples:
-//   cf, _ := cuckoofilter.New(10000)
-//   cf, _ := cuckoofilter.New(10000, cuckoofilter.WithFingerprintSize(8))
-//   cf, _ := cuckoofilter.New(10000, cuckoofilter.WithBucketSize(32))
+//
+//	cf, _ := cuckoofilter.New(10000)
+//	cf, _ := cuckoofilter.New(10000, cuckoofilter.WithFingerprintSize(8))
+//	cf, _ := cuckoofilter.New(10000, cuckoofilter.WithBucketSize(32))
 func New(capacity uint, opts ...Option) (CuckooFilter, error) {
 	if capacity == 0 {
 		return nil, ErrInvalidCapacity

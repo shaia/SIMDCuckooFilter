@@ -93,4 +93,3 @@ func (p *BatchProcessor) ProcessBatch(items [][]byte, fingerprintBits, numBucket
 
 	return results
 }
-

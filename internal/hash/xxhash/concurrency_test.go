@@ -147,7 +147,7 @@ func TestConcurrentMixedOperations(t *testing.T) {
 			defer wg.Done()
 			for i := 0; i < iterations; i++ {
 				index := uint(i % 500)
-				fp := byte((id + i) % 254 + 1)
+				fp := byte((id+i)%254 + 1)
 				i2 := xxh.GetAltIndex(index, fp, numBuckets)
 				if i2 >= numBuckets {
 					errors <- nil
