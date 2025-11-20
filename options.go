@@ -30,7 +30,7 @@ func defaultOptions() Options {
 // Validate checks if the options are valid
 func (o *Options) Validate() error {
 	if o.bucketSize != 2 && o.bucketSize != 4 && o.bucketSize != 8 &&
-	   o.bucketSize != 16 && o.bucketSize != 32 && o.bucketSize != 64 {
+		o.bucketSize != 16 && o.bucketSize != 32 && o.bucketSize != 64 {
 		return ErrInvalidBucketSize
 	}
 	// Fingerprints are stored as bytes (uint8), so only 1-8 bits are supported

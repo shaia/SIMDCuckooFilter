@@ -322,18 +322,36 @@ func TestCountBoundaryValues(t *testing.T) {
 			expected: size,
 		},
 		{
-			name:     "alternating_zero_one",
-			pattern:  func(i uint) byte { if i%2 == 0 { return 0 } else { return 1 } },
+			name: "alternating_zero_one",
+			pattern: func(i uint) byte {
+				if i%2 == 0 {
+					return 0
+				} else {
+					return 1
+				}
+			},
 			expected: size / 2,
 		},
 		{
-			name:     "first_half_filled",
-			pattern:  func(i uint) byte { if i < size/2 { return 1 } else { return 0 } },
+			name: "first_half_filled",
+			pattern: func(i uint) byte {
+				if i < size/2 {
+					return 1
+				} else {
+					return 0
+				}
+			},
 			expected: size / 2,
 		},
 		{
-			name:     "last_half_filled",
-			pattern:  func(i uint) byte { if i >= size/2 { return 1 } else { return 0 } },
+			name: "last_half_filled",
+			pattern: func(i uint) byte {
+				if i >= size/2 {
+					return 1
+				} else {
+					return 0
+				}
+			},
 			expected: size / 2,
 		},
 	}

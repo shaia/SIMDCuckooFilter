@@ -442,12 +442,12 @@ func TestFilterNextPowerOf2(t *testing.T) {
 		{17, 32},
 		{1000, 1024},
 		// Edge cases for large values
-		{1 << 62, 1 << 62},                    // 2^62 -> 2^62
-		{(1 << 62) + 1, 1 << 63},              // 2^62 + 1 -> 2^63
-		{1 << 63, 1 << 63},                    // 2^63 -> 2^63 (max power of 2)
-		{(1 << 63) + 1, 1 << 63},              // Overflow case: caps at 2^63
-		{^uint(0), 1 << 63},                   // Max uint: caps at 2^63
-		{^uint(0) - 1, 1 << 63},               // Max uint - 1: caps at 2^63
+		{1 << 62, 1 << 62},       // 2^62 -> 2^62
+		{(1 << 62) + 1, 1 << 63}, // 2^62 + 1 -> 2^63
+		{1 << 63, 1 << 63},       // 2^63 -> 2^63 (max power of 2)
+		{(1 << 63) + 1, 1 << 63}, // Overflow case: caps at 2^63
+		{^uint(0), 1 << 63},      // Max uint: caps at 2^63
+		{^uint(0) - 1, 1 << 63},  // Max uint - 1: caps at 2^63
 	}
 
 	for _, tc := range tests {

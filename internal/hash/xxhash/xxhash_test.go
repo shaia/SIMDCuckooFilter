@@ -53,14 +53,14 @@ func TestXXHashFinalByteProcessing(t *testing.T) {
 	// These test cases are specifically designed to trigger the final byte loop
 	// by having lengths that are not multiples of 8
 	testCases := [][]byte{
-		[]byte("1"),        // 1 byte - triggers short_byte_loop
-		[]byte("12"),       // 2 bytes - triggers short_byte_loop
-		[]byte("123"),      // 3 bytes - triggers short_byte_loop
-		[]byte("1234567"),  // 7 bytes - triggers short_byte_loop
-		[]byte("12345678"), // 8 bytes - uses chunk_loop only
-		[]byte("123456789"), // 9 bytes - chunk_loop + 1 final byte
-		[]byte("1234567890"), // 10 bytes - chunk_loop + 2 final bytes
-		[]byte("12345678901234567"), // 17 bytes - 2 chunks + 1 final byte
+		[]byte("1"),                           // 1 byte - triggers short_byte_loop
+		[]byte("12"),                          // 2 bytes - triggers short_byte_loop
+		[]byte("123"),                         // 3 bytes - triggers short_byte_loop
+		[]byte("1234567"),                     // 7 bytes - triggers short_byte_loop
+		[]byte("12345678"),                    // 8 bytes - uses chunk_loop only
+		[]byte("123456789"),                   // 9 bytes - chunk_loop + 1 final byte
+		[]byte("1234567890"),                  // 10 bytes - chunk_loop + 2 final bytes
+		[]byte("12345678901234567"),           // 17 bytes - 2 chunks + 1 final byte
 		[]byte("123456789012345678901234567"), // 27 bytes - 3 chunks + 3 final bytes
 	}
 
@@ -118,12 +118,12 @@ func TestFingerprintZeroHandling(t *testing.T) {
 	for bits := uint(4); bits <= 8; bits++ {
 		mask := (uint64(1) << bits) - 1
 		testValues := []uint64{
-			0,                    // Direct zero
-			^mask,                // All high bits set, low bits zero
-			0xFFFFFFFFFFFFFF00,   // Example of non-zero hash with zero fingerprint
-			uint64(1) << bits,    // Power of 2 (would be zero after mask)
-			uint64(256),          // Would be zero for 8-bit fingerprint
-			uint64(16),           // Would be zero for 4-bit fingerprint
+			0,                  // Direct zero
+			^mask,              // All high bits set, low bits zero
+			0xFFFFFFFFFFFFFF00, // Example of non-zero hash with zero fingerprint
+			uint64(1) << bits,  // Power of 2 (would be zero after mask)
+			uint64(256),        // Would be zero for 8-bit fingerprint
+			uint64(16),         // Would be zero for 4-bit fingerprint
 		}
 
 		for _, hashVal := range testValues {

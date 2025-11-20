@@ -127,10 +127,16 @@ func TestFactoryBatchProcessing(t *testing.T) {
 			h := NewHashFunction(tc.strategy, 8)
 
 			// Get individual results
-			individualResults := make([]struct{ i1, i2 uint; fp byte }, len(items))
+			individualResults := make([]struct {
+				i1, i2 uint
+				fp     byte
+			}, len(items))
 			for i, item := range items {
 				i1, i2, fp := h.GetIndices(item, numBuckets)
-				individualResults[i] = struct{ i1, i2 uint; fp byte }{i1, i2, fp}
+				individualResults[i] = struct {
+					i1, i2 uint
+					fp     byte
+				}{i1, i2, fp}
 			}
 
 			// Get batch results
@@ -211,10 +217,16 @@ func TestFactoryConsistency(t *testing.T) {
 			h := NewHashFunction(strategy, 8)
 
 			// Hash the same item multiple times
-			results := make([]struct{ i1, i2 uint; fp byte }, 100)
+			results := make([]struct {
+				i1, i2 uint
+				fp     byte
+			}, 100)
 			for i := range results {
 				i1, i2, fp := h.GetIndices(item, numBuckets)
-				results[i] = struct{ i1, i2 uint; fp byte }{i1, i2, fp}
+				results[i] = struct {
+					i1, i2 uint
+					fp     byte
+				}{i1, i2, fp}
 			}
 
 			// Verify all results are identical
