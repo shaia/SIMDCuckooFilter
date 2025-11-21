@@ -11,31 +11,31 @@ DATA avx2_prime64_1<>+0(SB)/8, $11400714785074694791
 DATA avx2_prime64_1<>+8(SB)/8, $11400714785074694791
 DATA avx2_prime64_1<>+16(SB)/8, $11400714785074694791
 DATA avx2_prime64_1<>+24(SB)/8, $11400714785074694791
-GLOBL avx2_prime64_1(SB), RODATA, $32
+GLOBL avx2_prime64_1<>(SB), RODATA, $32
 
 DATA avx2_prime64_2<>+0(SB)/8, $14029467366897019727
 DATA avx2_prime64_2<>+8(SB)/8, $14029467366897019727
 DATA avx2_prime64_2<>+16(SB)/8, $14029467366897019727
 DATA avx2_prime64_2<>+24(SB)/8, $14029467366897019727
-GLOBL avx2_prime64_2(SB), RODATA, $32
+GLOBL avx2_prime64_2<>(SB), RODATA, $32
 
 DATA avx2_prime64_3<>+0(SB)/8, $1609587929392839161
 DATA avx2_prime64_3<>+8(SB)/8, $1609587929392839161
 DATA avx2_prime64_3<>+16(SB)/8, $1609587929392839161
 DATA avx2_prime64_3<>+24(SB)/8, $1609587929392839161
-GLOBL avx2_prime64_3(SB), RODATA, $32
+GLOBL avx2_prime64_3<>(SB), RODATA, $32
 
 DATA avx2_prime64_4<>+0(SB)/8, $9650029242287828579
 DATA avx2_prime64_4<>+8(SB)/8, $9650029242287828579
 DATA avx2_prime64_4<>+16(SB)/8, $9650029242287828579
 DATA avx2_prime64_4<>+24(SB)/8, $9650029242287828579
-GLOBL avx2_prime64_4(SB), RODATA, $32
+GLOBL avx2_prime64_4<>(SB), RODATA, $32
 
 DATA avx2_prime64_5<>+0(SB)/8, $2870177450012600261
 DATA avx2_prime64_5<>+8(SB)/8, $2870177450012600261
 DATA avx2_prime64_5<>+16(SB)/8, $2870177450012600261
 DATA avx2_prime64_5<>+24(SB)/8, $2870177450012600261
-GLOBL avx2_prime64_5(SB), RODATA, $32
+GLOBL avx2_prime64_5<>(SB), RODATA, $32
 
 // Shift constants for rotation
 DATA avx2_shift_31<>+0(SB)/8, $31
@@ -101,7 +101,7 @@ simd_loop:
     JG   scalar_loop
 
     // Load constants into YMM registers
-    VMOVDQU avx2_prime64_5(SB), Y0   // Y0 = prime64_5 (4x)
+    VMOVDQU avx2_prime64_5<>(SB), Y0   // Y0 = prime64_5 (4x)
 
     // Load 4 item lengths and initialize hashes
     // Stack layout: items[AX..AX+3] pointers and lengths
@@ -197,7 +197,7 @@ simd_chunk_loop:
 
     // k *= prime64_2
     // AVX2 doesn't have 64-bit multiply, so we extract to scalar, multiply, and reinsert
-    VMOVDQU avx2_prime64_2(SB), Y3
+    VMOVDQU avx2_prime64_2<>(SB), Y3
 
     // Extract each 64-bit value, multiply, and reinsert
     VEXTRACTI128 $0, Y2, X4
@@ -244,7 +244,7 @@ simd_chunk_loop:
     VINSERTI128 $1, X4, Y2, Y2
 
     // k *= prime64_1
-    VMOVDQU avx2_prime64_1(SB), Y3
+    VMOVDQU avx2_prime64_1<>(SB), Y3
 
     // Extract each 64-bit value, multiply, and reinsert
     VEXTRACTI128 $0, Y2, X4
@@ -314,7 +314,7 @@ simd_chunk_loop:
     VINSERTI128 $1, X5, Y2, Y2
 
     // hash + prime64_4
-    VMOVDQU avx2_prime64_4(SB), Y3
+    VMOVDQU avx2_prime64_4<>(SB), Y3
     VPADDQ Y3, Y2, Y1
 
     ADDQ $8, CX
