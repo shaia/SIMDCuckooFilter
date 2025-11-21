@@ -11,31 +11,31 @@ DATA avx2_prime64_1<>+0(SB)/8, $11400714785074694791
 DATA avx2_prime64_1<>+8(SB)/8, $11400714785074694791
 DATA avx2_prime64_1<>+16(SB)/8, $11400714785074694791
 DATA avx2_prime64_1<>+24(SB)/8, $11400714785074694791
-GLOBL avx2_prime64_1<>(SB), RODATA, $32
+GLOBL avx2_prime64_1<>(SB), RODATA|NOPTR, $32
 
 DATA avx2_prime64_2<>+0(SB)/8, $14029467366897019727
 DATA avx2_prime64_2<>+8(SB)/8, $14029467366897019727
 DATA avx2_prime64_2<>+16(SB)/8, $14029467366897019727
 DATA avx2_prime64_2<>+24(SB)/8, $14029467366897019727
-GLOBL avx2_prime64_2<>(SB), RODATA, $32
+GLOBL avx2_prime64_2<>(SB), RODATA|NOPTR, $32
 
 DATA avx2_prime64_3<>+0(SB)/8, $1609587929392839161
 DATA avx2_prime64_3<>+8(SB)/8, $1609587929392839161
 DATA avx2_prime64_3<>+16(SB)/8, $1609587929392839161
 DATA avx2_prime64_3<>+24(SB)/8, $1609587929392839161
-GLOBL avx2_prime64_3<>(SB), RODATA, $32
+GLOBL avx2_prime64_3<>(SB), RODATA|NOPTR, $32
 
 DATA avx2_prime64_4<>+0(SB)/8, $9650029242287828579
 DATA avx2_prime64_4<>+8(SB)/8, $9650029242287828579
 DATA avx2_prime64_4<>+16(SB)/8, $9650029242287828579
 DATA avx2_prime64_4<>+24(SB)/8, $9650029242287828579
-GLOBL avx2_prime64_4<>(SB), RODATA, $32
+GLOBL avx2_prime64_4<>(SB), RODATA|NOPTR, $32
 
 DATA avx2_prime64_5<>+0(SB)/8, $2870177450012600261
 DATA avx2_prime64_5<>+8(SB)/8, $2870177450012600261
 DATA avx2_prime64_5<>+16(SB)/8, $2870177450012600261
 DATA avx2_prime64_5<>+24(SB)/8, $2870177450012600261
-GLOBL avx2_prime64_5<>(SB), RODATA, $32
+GLOBL avx2_prime64_5<>(SB), RODATA|NOPTR, $32
 
 // Shift constants for rotation
 DATA avx2_shift_31<>+0(SB)/8, $31
@@ -65,7 +65,8 @@ GLOBL avx2_shift_37<>(SB), RODATA, $32
 // processBatchXXHashAVX2 computes XXHash64 for multiple items in batch using AVX2
 // Processes 4 items in parallel using 256-bit SIMD registers
 // func processBatchXXHashAVX2(items [][]byte, results []HashResult, fingerprintBits, numBuckets uint)
-TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $136-64
+// Stack frame must be 16-byte aligned for AVX2 operations
+TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $144-64
     // Load arguments
     MOVQ items_base+0(FP), DI        // DI = items slice base
     MOVQ items_len+8(FP), SI         // SI = number of items
@@ -92,8 +93,24 @@ TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $136-64
 
     // Check if we can process 4 items in parallel
     MOVQ SI, R15
-    SUBQ $3, R15
-    JL   scalar_loop  // If items < 4, use scalar
+    SUBQ $4, R15
+    // TODO(fix): AVX2 SIMD path is currently broken on Windows - crashes when loading
+    // item pointers from stack. Issue appears to be related to stack frame corruption
+    // or incorrect addressing. Scalar fallback works correctly.
+    //
+    // The crash occurs at line 180 when trying to load item data pointers from stack
+    // offsets 32(SP), 48(SP), 64(SP), 80(SP). The loaded values are garbage
+    // (e.g., 0xc0000f8000) instead of the valid pointers that were stored earlier.
+    //
+    // Possible causes:
+    // - Stack frame corruption between store and load
+    // - Incorrect stack addressing with NOSPLIT on Windows
+    // - AVX2 operations corrupting stack
+    // - Issue with how slice data is being loaded from items parameter
+    //
+    // For now, force scalar path until this can be debugged properly with a debugger.
+    JMP  scalar_loop  // Force scalar path (TEMPORARY - see TODO above)
+    // JL   scalar_loop  // If items < 4, use scalar
 
 // Process 4 items in parallel using AVX2
 simd_loop:
@@ -107,31 +124,29 @@ simd_loop:
     // Stack layout: items[AX..AX+3] pointers and lengths
     MOVQ AX, BX
     IMULQ $24, BX     // BX = offset to items[AX]
+    ADDQ DI, BX       // BX = &items[AX]
 
     // Load item 0
-    MOVQ (DI)(BX*1), R8
-    MOVQ 8(DI)(BX*1), R9
+    MOVQ 0(BX), R8    // data ptr
+    MOVQ 8(BX), R9    // length
     MOVQ R8, 32(SP)   // item0 data ptr
     MOVQ R9, 40(SP)   // item0 length
 
     // Load item 1
-    ADDQ $24, BX
-    MOVQ (DI)(BX*1), R8
-    MOVQ 8(DI)(BX*1), R9
+    MOVQ 24(BX), R8   // data ptr
+    MOVQ 32(BX), R9   // length
     MOVQ R8, 48(SP)   // item1 data ptr
     MOVQ R9, 56(SP)   // item1 length
 
     // Load item 2
-    ADDQ $24, BX
-    MOVQ (DI)(BX*1), R8
-    MOVQ 8(DI)(BX*1), R9
+    MOVQ 48(BX), R8   // data ptr
+    MOVQ 56(BX), R9   // length
     MOVQ R8, 64(SP)   // item2 data ptr
     MOVQ R9, 72(SP)   // item2 length
 
     // Load item 3
-    ADDQ $24, BX
-    MOVQ (DI)(BX*1), R8
-    MOVQ 8(DI)(BX*1), R9
+    MOVQ 72(BX), R8   // data ptr
+    MOVQ 80(BX), R9   // length
     MOVQ R8, 80(SP)   // item3 data ptr
     MOVQ R9, 88(SP)   // item3 length
 
@@ -202,20 +217,20 @@ simd_chunk_loop:
     // Extract each 64-bit value, multiply, and reinsert
     VEXTRACTI128 $0, Y2, X4
     VPEXTRQ $0, X4, R9
-    IMULQ prime64_2<>(SB), R9
+    IMULQ prime64_2(SB), R9
     VPINSRQ $0, R9, X4, X4
 
     VPEXTRQ $1, X4, R9
-    IMULQ prime64_2<>(SB), R9
+    IMULQ prime64_2(SB), R9
     VPINSRQ $1, R9, X4, X4
 
     VEXTRACTI128 $1, Y2, X5
     VPEXTRQ $0, X5, R9
-    IMULQ prime64_2<>(SB), R9
+    IMULQ prime64_2(SB), R9
     VPINSRQ $0, R9, X5, X5
 
     VPEXTRQ $1, X5, R9
-    IMULQ prime64_2<>(SB), R9
+    IMULQ prime64_2(SB), R9
     VPINSRQ $1, R9, X5, X5
 
     VINSERTI128 $1, X5, Y2, Y2
@@ -249,20 +264,20 @@ simd_chunk_loop:
     // Extract each 64-bit value, multiply, and reinsert
     VEXTRACTI128 $0, Y2, X4
     VPEXTRQ $0, X4, R9
-    IMULQ prime64_1<>(SB), R9
+    IMULQ prime64_1(SB), R9
     VPINSRQ $0, R9, X4, X4
 
     VPEXTRQ $1, X4, R9
-    IMULQ prime64_1<>(SB), R9
+    IMULQ prime64_1(SB), R9
     VPINSRQ $1, R9, X4, X4
 
     VEXTRACTI128 $1, Y2, X5
     VPEXTRQ $0, X5, R9
-    IMULQ prime64_1<>(SB), R9
+    IMULQ prime64_1(SB), R9
     VPINSRQ $0, R9, X5, X5
 
     VPEXTRQ $1, X5, R9
-    IMULQ prime64_1<>(SB), R9
+    IMULQ prime64_1(SB), R9
     VPINSRQ $1, R9, X5, X5
 
     VINSERTI128 $1, X5, Y2, Y2
@@ -295,20 +310,20 @@ simd_chunk_loop:
     // Extract each 64-bit value, multiply, and reinsert
     VEXTRACTI128 $0, Y2, X4
     VPEXTRQ $0, X4, R9
-    IMULQ prime64_1<>(SB), R9
+    IMULQ prime64_1(SB), R9
     VPINSRQ $0, R9, X4, X4
 
     VPEXTRQ $1, X4, R9
-    IMULQ prime64_1<>(SB), R9
+    IMULQ prime64_1(SB), R9
     VPINSRQ $1, R9, X4, X4
 
     VEXTRACTI128 $1, Y2, X5
     VPEXTRQ $0, X5, R9
-    IMULQ prime64_1<>(SB), R9
+    IMULQ prime64_1(SB), R9
     VPINSRQ $0, R9, X5, X5
 
     VPEXTRQ $1, X5, R9
-    IMULQ prime64_1<>(SB), R9
+    IMULQ prime64_1(SB), R9
     VPINSRQ $1, R9, X5, X5
 
     VINSERTI128 $1, X5, Y2, Y2
@@ -322,6 +337,9 @@ simd_chunk_loop:
 
 simd_remainder:
     // Process remaining bytes for each item individually (fallback to scalar)
+    // Save the chunk offset (number of bytes already processed)
+    MOVQ CX, 96(SP)   // Save chunk offset (overwrite min_length, no longer needed)
+
     // Extract hashes and continue scalar processing
     VEXTRACTI128 $0, Y1, X2
     VPEXTRQ $0, X2, R8
@@ -343,27 +361,44 @@ simd_finalize_loop:
     CMPQ DX, $4
     JGE  simd_finalize_done
 
-    // Get item data ptr, length, and hash
-    MOVQ DX, CX
-    SHLQ $4, CX       // CX = DX * 16
-    ADDQ $32, CX
-    MOVQ (SP)(CX*1), R8     // data ptr
-    MOVQ 8(SP)(CX*1), R9    // length
+    // Get item data ptr, length, and hash based on DX (0..3)
+    // Use conditional jumps to select the correct stack offset
+    CMPQ DX, $0
+    JE   load_item0
+    CMPQ DX, $1
+    JE   load_item1
+    CMPQ DX, $2
+    JE   load_item2
+    // DX == 3
+    MOVQ 80(SP), R8    // item3 data ptr
+    MOVQ 88(SP), R9    // item3 length
+    MOVQ 128(SP), BP   // hash3
+    JMP  loaded_item
+load_item2:
+    MOVQ 64(SP), R8    // item2 data ptr
+    MOVQ 72(SP), R9    // item2 length
+    MOVQ 120(SP), BP   // hash2
+    JMP  loaded_item
+load_item1:
+    MOVQ 48(SP), R8    // item1 data ptr
+    MOVQ 56(SP), R9    // item1 length
+    MOVQ 112(SP), BP   // hash1
+    JMP  loaded_item
+load_item0:
+    MOVQ 32(SP), R8    // item0 data ptr
+    MOVQ 40(SP), R9    // item0 length
+    MOVQ 104(SP), BP   // hash0
+loaded_item:
 
-    MOVQ DX, CX
-    SHLQ $3, CX
-    ADDQ $104, CX
-    MOVQ (SP)(CX*1), BP     // hash value
-
-    // Process from min_length to actual length
-    MOVQ 96(SP), CX         // CX = min_length (already processed)
+    // Process from chunk_offset to actual length
+    MOVQ 96(SP), CX         // CX = chunk_offset (bytes already processed in chunk loop)
 
 simd_item_remainder:
     CMPQ CX, R9
     JGE  simd_item_finalize
 
     MOVBQZX (R8)(CX*1), R15
-    MOVQ prime64_5<>(SB), R14
+    MOVQ prime64_5(SB), R14
     IMULQ R14, R15
     XORQ R15, BP
 
@@ -371,7 +406,7 @@ simd_item_remainder:
     ROLQ $11, R15
     MOVQ R15, BP
 
-    MOVQ prime64_1<>(SB), R15
+    MOVQ prime64_1(SB), R15
     IMULQ R15, BP
 
     INCQ CX
@@ -383,14 +418,14 @@ simd_item_finalize:
     SHRQ $33, R15
     XORQ R15, BP
 
-    MOVQ prime64_2<>(SB), R15
+    MOVQ prime64_2(SB), R15
     IMULQ R15, BP
 
     MOVQ BP, R15
     SHRQ $29, R15
     XORQ R15, BP
 
-    MOVQ prime64_3<>(SB), R15
+    MOVQ prime64_3(SB), R15
     IMULQ R15, BP
 
     MOVQ BP, R15
@@ -414,22 +449,26 @@ simd_fp_ok:
 
     // Calculate i2: Compute XXHash64 of fingerprint byte in CL, store in R9
     MOVBQZX CL, R9                  // R9 = fp
-    MOVQ    prime64_5<>(SB), R11   // R11 = prime64_5
-    ADDQ    $1, R11                // seed = prime64_5 + 1 (length=1)
-    ADDQ    R9, R11                // hash = seed + fp
-    MOVQ    R11, R9                // R9 = hash
-    // Avalanche (as in XXHash64 for <=8 bytes)
-    MOVQ    R9, R12
-    SHRQ    $33, R12
-    XORQ    R12, R9
-    IMULQ   prime64_2<>(SB), R9
-    MOVQ    R9, R12
-    SHRQ    $29, R12
-    XORQ    R12, R9
-    IMULQ   prime64_3<>(SB), R9
-    MOVQ    R9, R12
-    SHRQ    $32, R12
-    XORQ    R12, R9
+    MOVQ    prime64_5(SB), R11   // R11 = prime64_5
+    ADDQ    $1, R11                // R11 = prime64_5 + 1 (initial hash for length=1)
+    IMULQ   prime64_5(SB), R9      // R9 = fp * prime64_5
+    XORQ    R9, R11                // R11 ^= (fp * prime64_5)
+    // Rotate left by 11 and multiply by prime64_1
+    ROLQ    $11, R11               // R11 = rotl64(R11, 11)
+    IMULQ   prime64_1(SB), R11     // R11 *= prime64_1
+    // Avalanche (as in XXHash64 finalization)
+    MOVQ    R11, R9
+    SHRQ    $33, R9
+    XORQ    R9, R11
+    IMULQ   prime64_2(SB), R11
+    MOVQ    R11, R9
+    SHRQ    $29, R9
+    XORQ    R9, R11
+    IMULQ   prime64_3(SB), R11
+    MOVQ    R11, R9
+    SHRQ    $32, R9
+    XORQ    R9, R11
+    MOVQ    R11, R9                // R9 = final hash
     // Now R9 = hash(fp)
     XORQ    R8, R9
     ANDQ    R13, R9            // i2
@@ -461,7 +500,7 @@ scalar_loop:
     MOVQ (DI)(BX*1), R8     // data ptr
     MOVQ 8(DI)(BX*1), CX    // length
 
-    MOVQ prime64_5<>(SB), BP
+    MOVQ prime64_5(SB), BP
     ADDQ CX, BP
 
 scalar_chunk_loop:
@@ -470,15 +509,15 @@ scalar_chunk_loop:
 
     MOVQ (R8), R9
     MOVQ R9, R15
-    IMULQ prime64_2<>(SB), R15
+    IMULQ prime64_2(SB), R15
 
     ROLQ $31, R15
-    IMULQ prime64_1<>(SB), R15
+    IMULQ prime64_1(SB), R15
 
     XORQ R15, BP
     ROLQ $27, BP
-    IMULQ prime64_1<>(SB), BP
-    ADDQ prime64_4<>(SB), BP
+    IMULQ prime64_1(SB), BP
+    ADDQ prime64_4(SB), BP
 
     ADDQ $8, R8
     SUBQ $8, CX
@@ -490,11 +529,11 @@ scalar_final_bytes:
 
 scalar_byte_loop:
     MOVBQZX (R8), R15
-    IMULQ prime64_5<>(SB), R15
+    IMULQ prime64_5(SB), R15
     XORQ R15, BP
 
     ROLQ $11, BP
-    IMULQ prime64_1<>(SB), BP
+    IMULQ prime64_1(SB), BP
 
     INCQ R8
     DECQ CX
@@ -504,12 +543,12 @@ scalar_finalize:
     MOVQ BP, R15
     SHRQ $33, R15
     XORQ R15, BP
-    IMULQ prime64_2<>(SB), BP
+    IMULQ prime64_2(SB), BP
 
     MOVQ BP, R15
     SHRQ $29, R15
     XORQ R15, BP
-    IMULQ prime64_3<>(SB), BP
+    IMULQ prime64_3(SB), BP
 
     MOVQ BP, R15
     SHRQ $32, R15
@@ -532,22 +571,26 @@ scalar_fp_ok:
 
     // Calculate i2: hash the fingerprint
     MOVBQZX CL, R9                  // R9 = fp
-    MOVQ    prime64_5<>(SB), R11   // R11 = prime64_5
-    ADDQ    $1, R11                // seed = prime64_5 + 1 (length=1)
-    ADDQ    R9, R11                // hash = seed + fp
-    MOVQ    R11, R9                // R9 = hash
+    MOVQ    prime64_5(SB), R11   // R11 = prime64_5
+    ADDQ    $1, R11                // R11 = prime64_5 + 1 (initial hash for length=1)
+    IMULQ   prime64_5(SB), R9      // R9 = fp * prime64_5
+    XORQ    R9, R11                // R11 ^= (fp * prime64_5)
+    // Rotate left by 11 and multiply by prime64_1
+    ROLQ    $11, R11               // R11 = rotl64(R11, 11)
+    IMULQ   prime64_1(SB), R11     // R11 *= prime64_1
     // Avalanche
-    MOVQ    R9, R12
-    SHRQ    $33, R12
-    XORQ    R12, R9
-    IMULQ   prime64_2<>(SB), R9
-    MOVQ    R9, R12
-    SHRQ    $29, R12
-    XORQ    R12, R9
-    IMULQ   prime64_3<>(SB), R9
-    MOVQ    R9, R12
-    SHRQ    $32, R12
-    XORQ    R12, R9
+    MOVQ    R11, R9
+    SHRQ    $33, R9
+    XORQ    R9, R11
+    IMULQ   prime64_2(SB), R11
+    MOVQ    R11, R9
+    SHRQ    $29, R9
+    XORQ    R9, R11
+    IMULQ   prime64_3(SB), R11
+    MOVQ    R11, R9
+    SHRQ    $32, R9
+    XORQ    R9, R11
+    MOVQ    R11, R9                // R9 = final hash
     // Now R9 = hash(fp)
     XORQ R8, R9
     ANDQ R13, R9            // i2
