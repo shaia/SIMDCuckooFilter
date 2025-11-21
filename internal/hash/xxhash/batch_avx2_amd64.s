@@ -65,7 +65,8 @@ GLOBL avx2_shift_37<>(SB), RODATA, $32
 // processBatchXXHashAVX2 computes XXHash64 for multiple items in batch using AVX2
 // Processes 4 items in parallel using 256-bit SIMD registers
 // func processBatchXXHashAVX2(items [][]byte, results []HashResult, fingerprintBits, numBuckets uint)
-TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $136-64
+// Stack frame must be 16-byte aligned for AVX2 operations
+TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $144-64
     // Load arguments
     MOVQ items_base+0(FP), DI        // DI = items slice base
     MOVQ items_len+8(FP), SI         // SI = number of items
@@ -93,7 +94,23 @@ TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $136-64
     // Check if we can process 4 items in parallel
     MOVQ SI, R15
     SUBQ $4, R15
-    JL   scalar_loop  // If items < 4, use scalar
+    // TODO(fix): AVX2 SIMD path is currently broken on Windows - crashes when loading
+    // item pointers from stack. Issue appears to be related to stack frame corruption
+    // or incorrect addressing. Scalar fallback works correctly.
+    //
+    // The crash occurs at line 180 when trying to load item data pointers from stack
+    // offsets 32(SP), 48(SP), 64(SP), 80(SP). The loaded values are garbage
+    // (e.g., 0xc0000f8000) instead of the valid pointers that were stored earlier.
+    //
+    // Possible causes:
+    // - Stack frame corruption between store and load
+    // - Incorrect stack addressing with NOSPLIT on Windows
+    // - AVX2 operations corrupting stack
+    // - Issue with how slice data is being loaded from items parameter
+    //
+    // For now, force scalar path until this can be debugged properly with a debugger.
+    JMP  scalar_loop  // Force scalar path (TEMPORARY - see TODO above)
+    // JL   scalar_loop  // If items < 4, use scalar
 
 // Process 4 items in parallel using AVX2
 simd_loop:
@@ -107,31 +124,29 @@ simd_loop:
     // Stack layout: items[AX..AX+3] pointers and lengths
     MOVQ AX, BX
     IMULQ $24, BX     // BX = offset to items[AX]
+    ADDQ DI, BX       // BX = &items[AX]
 
     // Load item 0
-    MOVQ (DI)(BX*1), R8
-    MOVQ 8(DI)(BX*1), R9
+    MOVQ 0(BX), R8    // data ptr
+    MOVQ 8(BX), R9    // length
     MOVQ R8, 32(SP)   // item0 data ptr
     MOVQ R9, 40(SP)   // item0 length
 
     // Load item 1
-    ADDQ $24, BX
-    MOVQ (DI)(BX*1), R8
-    MOVQ 8(DI)(BX*1), R9
+    MOVQ 24(BX), R8   // data ptr
+    MOVQ 32(BX), R9   // length
     MOVQ R8, 48(SP)   // item1 data ptr
     MOVQ R9, 56(SP)   // item1 length
 
     // Load item 2
-    ADDQ $24, BX
-    MOVQ (DI)(BX*1), R8
-    MOVQ 8(DI)(BX*1), R9
+    MOVQ 48(BX), R8   // data ptr
+    MOVQ 56(BX), R9   // length
     MOVQ R8, 64(SP)   // item2 data ptr
     MOVQ R9, 72(SP)   // item2 length
 
     // Load item 3
-    ADDQ $24, BX
-    MOVQ (DI)(BX*1), R8
-    MOVQ 8(DI)(BX*1), R9
+    MOVQ 72(BX), R8   // data ptr
+    MOVQ 80(BX), R9   // length
     MOVQ R8, 80(SP)   // item3 data ptr
     MOVQ R9, 88(SP)   // item3 length
 
@@ -322,6 +337,9 @@ simd_chunk_loop:
 
 simd_remainder:
     // Process remaining bytes for each item individually (fallback to scalar)
+    // Save the chunk offset (number of bytes already processed)
+    MOVQ CX, 96(SP)   // Save chunk offset (overwrite min_length, no longer needed)
+
     // Extract hashes and continue scalar processing
     VEXTRACTI128 $0, Y1, X2
     VPEXTRQ $0, X2, R8
@@ -343,20 +361,37 @@ simd_finalize_loop:
     CMPQ DX, $4
     JGE  simd_finalize_done
 
-    // Get item data ptr, length, and hash
-    MOVQ DX, CX
-    SHLQ $4, CX       // CX = DX * 16
-    ADDQ $32, CX
-    MOVQ (SP)(CX*1), R8     // data ptr
-    MOVQ 8(SP)(CX*1), R9    // length
+    // Get item data ptr, length, and hash based on DX (0..3)
+    // Use conditional jumps to select the correct stack offset
+    CMPQ DX, $0
+    JE   load_item0
+    CMPQ DX, $1
+    JE   load_item1
+    CMPQ DX, $2
+    JE   load_item2
+    // DX == 3
+    MOVQ 80(SP), R8    // item3 data ptr
+    MOVQ 88(SP), R9    // item3 length
+    MOVQ 128(SP), BP   // hash3
+    JMP  loaded_item
+load_item2:
+    MOVQ 64(SP), R8    // item2 data ptr
+    MOVQ 72(SP), R9    // item2 length
+    MOVQ 120(SP), BP   // hash2
+    JMP  loaded_item
+load_item1:
+    MOVQ 48(SP), R8    // item1 data ptr
+    MOVQ 56(SP), R9    // item1 length
+    MOVQ 112(SP), BP   // hash1
+    JMP  loaded_item
+load_item0:
+    MOVQ 32(SP), R8    // item0 data ptr
+    MOVQ 40(SP), R9    // item0 length
+    MOVQ 104(SP), BP   // hash0
+loaded_item:
 
-    MOVQ DX, CX
-    SHLQ $3, CX
-    ADDQ $104, CX
-    MOVQ (SP)(CX*1), BP     // hash value
-
-    // Process from min_length to actual length
-    MOVQ 96(SP), CX         // CX = min_length (already processed)
+    // Process from chunk_offset to actual length
+    MOVQ 96(SP), CX         // CX = chunk_offset (bytes already processed in chunk loop)
 
 simd_item_remainder:
     CMPQ CX, R9
