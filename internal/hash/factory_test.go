@@ -129,13 +129,13 @@ func TestFactoryBatchProcessing(t *testing.T) {
 			// Get individual results
 			individualResults := make([]struct {
 				i1, i2 uint
-				fp     byte
+				fp     uint16
 			}, len(items))
 			for i, item := range items {
 				i1, i2, fp := h.GetIndices(item, numBuckets)
 				individualResults[i] = struct {
 					i1, i2 uint
-					fp     byte
+					fp     uint16
 				}{i1, i2, fp}
 			}
 
@@ -187,7 +187,7 @@ func TestFactoryFingerprintBits(t *testing.T) {
 			_, _, fp := h.GetIndices(item, numBuckets)
 
 			// Verify fingerprint fits within specified bits
-			maxValue := byte((1 << tc.bits) - 1)
+			maxValue := uint16((1 << tc.bits) - 1)
 			if fp > maxValue {
 				t.Errorf("Fingerprint %d exceeds max value %d for %d bits", fp, maxValue, tc.bits)
 			}
@@ -219,13 +219,13 @@ func TestFactoryConsistency(t *testing.T) {
 			// Hash the same item multiple times
 			results := make([]struct {
 				i1, i2 uint
-				fp     byte
+				fp     uint16
 			}, 100)
 			for i := range results {
 				i1, i2, fp := h.GetIndices(item, numBuckets)
 				results[i] = struct {
 					i1, i2 uint
-					fp     byte
+					fp     uint16
 				}{i1, i2, fp}
 			}
 

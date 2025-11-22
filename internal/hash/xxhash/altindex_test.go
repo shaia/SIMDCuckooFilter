@@ -38,19 +38,21 @@ func TestAlternativeIndexCalculation(t *testing.T) {
 			// Get reference indices from scalar implementation
 			i1Ref, i2Ref, fpRef := referenceHash.GetIndices(tc.data, numBuckets)
 
-			// Verify that i2 == (i1 ^ hash(fp)) % numBuckets
-			// Compute hash(fp) using the same method
-			var fpBuf [1]byte
-			fpBuf[0] = fpRef
-			fpHash := referenceHash.hash64(fpBuf[:])
-			expectedI2 := uint((uint64(i1Ref) ^ fpHash) % uint64(numBuckets))
+			// Verify that i2 == (i1 ^ (fp * constant)) % numBuckets
+			// This matches the simplified implementation in xxhash.go
+			const murmurConst = 0x5bd1e995
+			hash := uint64(fpRef) * murmurConst
+			if numBuckets > 1 {
+				hash |= 1
+			}
+			expectedI2 := uint((uint64(i1Ref) ^ hash) % uint64(numBuckets))
 
 			if i2Ref != expectedI2 {
 				t.Errorf("Alternative index calculation incorrect:\n"+
-					"  i1=%d, fp=%d, fpHash=%d\n"+
+					"  i1=%d, fp=%d\n"+
 					"  Expected i2=%d, got i2=%d\n"+
-					"  Expected: i2=(i1^hash(fp)) mod numBuckets",
-					i1Ref, fpRef, fpHash, expectedI2, i2Ref)
+					"  Expected: i2=(i1 ^ (fp * 0x%x)) mod numBuckets",
+					i1Ref, fpRef, expectedI2, i2Ref, murmurConst)
 			}
 
 			// Test with SIMD batch implementation (auto-selected)
@@ -98,7 +100,7 @@ func TestGetAltIndexSymmetry(t *testing.T) {
 	// Test various index and fingerprint combinations
 	testCases := []struct {
 		i1 uint
-		fp byte
+		fp uint16
 	}{
 		{0, 1},
 		{1, 1},
@@ -142,12 +144,13 @@ func TestSingleByteFingerprintHashing(t *testing.T) {
 		batchProcessor:  nil,
 	}
 
-	// Test all possible fingerprint values (1-255, since 0 is never used)
+	// Test all possible fingerprint values (1-65535, since 0 is never used)
 	failureCount := 0
-	for fp := byte(1); fp != 0; fp++ {
+	for fp := uint16(1); fp != 0; fp++ {
 		// Hash the fingerprint using the XXHash method
-		var fpBuf [1]byte
-		fpBuf[0] = fp
+		var fpBuf [2]byte
+		fpBuf[0] = byte(fp)
+		fpBuf[1] = byte(fp >> 8)
 		hashResult := xxh.hash64(fpBuf[:])
 
 		// Verify using the Go reference implementation

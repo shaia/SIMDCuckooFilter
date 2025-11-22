@@ -3,21 +3,21 @@ package bucket
 // Bucket represents a fixed-size array of fingerprints
 // Each bucket can hold up to 'size' fingerprints (typically 4)
 type Bucket struct {
-	fingerprints []byte
+	fingerprints []uint16
 	size         uint
 }
 
 // NewBucket creates a new bucket with the specified size
 func NewBucket(size uint) *Bucket {
 	return &Bucket{
-		fingerprints: make([]byte, size),
+		fingerprints: make([]uint16, size),
 		size:         size,
 	}
 }
 
 // Insert adds a fingerprint to the bucket if there's space
 // Returns true if successful, false if bucket is full
-func (b *Bucket) Insert(fp byte) bool {
+func (b *Bucket) Insert(fp uint16) bool {
 	idx := inlineFindFirstZero(b.fingerprints[:b.size])
 	if idx < b.size {
 		b.fingerprints[idx] = fp
@@ -28,12 +28,12 @@ func (b *Bucket) Insert(fp byte) bool {
 
 // Remove removes a fingerprint from the bucket
 // Returns true if found and removed, false otherwise
-func (b *Bucket) Remove(fp byte) bool {
+func (b *Bucket) Remove(fp uint16) bool {
 	return inlineRemove(b.fingerprints[:b.size], fp)
 }
 
 // Contains checks if a fingerprint exists in the bucket
-func (b *Bucket) Contains(fp byte) bool {
+func (b *Bucket) Contains(fp uint16) bool {
 	return inlineContains(b.fingerprints[:b.size], fp)
 }
 
@@ -49,7 +49,7 @@ func (b *Bucket) Count() uint {
 
 // Swap replaces a fingerprint at the given index and returns the old value
 // This is used during cuckoo hashing relocation
-func (b *Bucket) Swap(index uint, fp byte) byte {
+func (b *Bucket) Swap(index uint, fp uint16) uint16 {
 	if index >= b.size {
 		return 0
 	}
@@ -66,6 +66,6 @@ func (b *Bucket) Reset() {
 }
 
 // GetFingerprints returns the underlying fingerprint slice (for SIMD operations)
-func (b *Bucket) GetFingerprints() []byte {
+func (b *Bucket) GetFingerprints() []uint16 {
 	return b.fingerprints
 }

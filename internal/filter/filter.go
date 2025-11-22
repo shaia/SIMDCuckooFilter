@@ -68,7 +68,7 @@ func (f *simdFilter) Insert(item []byte) bool {
 	return f.relocate(i1, i2, fp)
 }
 
-func (f *simdFilter) relocate(i1, i2 uint, fp byte) bool {
+func (f *simdFilter) relocate(i1, i2 uint, fp uint16) bool {
 	// Start from random bucket
 	index := i1
 	if rand.Intn(2) == 1 {

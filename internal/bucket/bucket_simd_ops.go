@@ -13,7 +13,7 @@ func NewSIMDBucket(size uint) *SIMDBucket {
 }
 
 // ContainsSIMD checks if a fingerprint exists using SIMD
-func (b *SIMDBucket) ContainsSIMD(fp byte) bool {
+func (b *SIMDBucket) ContainsSIMD(fp uint16) bool {
 	return containsSIMD(b.fingerprints[:b.size], fp)
 }
 
@@ -34,7 +34,7 @@ func (b *SIMDBucket) FindFirstZeroSIMD() uint {
 }
 
 // InsertSIMD adds a fingerprint using SIMD-accelerated search
-func (b *SIMDBucket) InsertSIMD(fp byte) bool {
+func (b *SIMDBucket) InsertSIMD(fp uint16) bool {
 	idx := b.FindFirstZeroSIMD()
 	if idx < b.size {
 		b.fingerprints[idx] = fp

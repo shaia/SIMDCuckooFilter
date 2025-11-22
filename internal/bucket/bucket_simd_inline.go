@@ -9,7 +9,7 @@ package bucket
 // For standard bucket operations, these provide the core loop logic.
 
 // inlineContains checks if a fingerprint exists in data using scalar loop
-func inlineContains(data []byte, fp byte) bool {
+func inlineContains(data []uint16, fp uint16) bool {
 	for _, b := range data {
 		if b == fp {
 			return true
@@ -19,7 +19,7 @@ func inlineContains(data []byte, fp byte) bool {
 }
 
 // inlineIsFull checks if data is full (no zeros) using scalar loop
-func inlineIsFull(data []byte) bool {
+func inlineIsFull(data []uint16) bool {
 	for _, b := range data {
 		if b == 0 {
 			return false
@@ -29,7 +29,7 @@ func inlineIsFull(data []byte) bool {
 }
 
 // inlineCount counts non-zero entries in data using scalar loop
-func inlineCount(data []byte) uint {
+func inlineCount(data []uint16) uint {
 	count := uint(0)
 	for _, b := range data {
 		if b != 0 {
@@ -41,7 +41,7 @@ func inlineCount(data []byte) uint {
 
 // inlineFindFirstZero finds the first zero slot in data using scalar loop
 // Returns len(data) if no zero found
-func inlineFindFirstZero(data []byte) uint {
+func inlineFindFirstZero(data []uint16) uint {
 	for i, b := range data {
 		if b == 0 {
 			return uint(i)
@@ -52,7 +52,7 @@ func inlineFindFirstZero(data []byte) uint {
 
 // inlineRemove finds and removes (zeros) the first occurrence of a fingerprint
 // Returns true if found and removed, false otherwise
-func inlineRemove(data []byte, fp byte) bool {
+func inlineRemove(data []uint16, fp uint16) bool {
 	for i, b := range data {
 		if b == fp {
 			data[i] = 0

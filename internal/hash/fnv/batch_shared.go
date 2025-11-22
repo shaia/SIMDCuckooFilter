@@ -21,8 +21,12 @@ func processItemFNV(item []byte, fingerprintBits, numBuckets uint) types.HashRes
 	// Calculate alternative index using fingerprint hash
 	// Use stack-allocated buffer to avoid heap allocation
 	fpHasher := fnv.New64a()
-	fpBuf := [1]byte{fp}
-	fpHasher.Write(fpBuf[:])
+	fpBuf := [2]byte{byte(fp), byte(fp >> 8)}
+	len := 1
+	if fingerprintBits > 8 {
+		len = 2
+	}
+	fpHasher.Write(fpBuf[:len])
 	fpHash := fpHasher.Sum64()
 	i2 := (uint64(i1) ^ fpHash) % uint64(numBuckets)
 
