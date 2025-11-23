@@ -838,7 +838,7 @@ scalar_loop:
     MOVQ 8(DI)(BX*1), CX    // length
     TESTQ R8, R8
     JNZ scalar_ptr_ok
-    INT $3 // R8 is 0
+
 scalar_ptr_ok:
     MOVQ local_prime64_5<>(SB), R12
     ADDQ CX, R12
