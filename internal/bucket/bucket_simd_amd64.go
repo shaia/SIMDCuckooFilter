@@ -9,6 +9,11 @@ func containsAVX2(data []uint16, fp uint16) bool
 // containsSIMD checks if a fingerprint exists in the bucket
 // AMD64 implementation uses AVX2 for optimized parallel comparison
 func containsSIMD(data []uint16, fp uint16) bool {
+	// For very small buckets, the overhead of the assembly call dominates.
+	// Use inline scalar implementation for size 4 and below.
+	if len(data) <= 4 {
+		return inlineContains(data, fp)
+	}
 	return containsAVX2(data, fp)
 }
 

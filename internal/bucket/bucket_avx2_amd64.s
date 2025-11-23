@@ -29,14 +29,13 @@ TEXT ·containsAVX2(SB), NOSPLIT, $0-33
 
 len32:
 	// 32 items = 64 bytes = 2 YMM registers
-	VMOVDQU (SI), Y1        // Load first 16 items
-	VPCMPEQW Y0, Y1, Y1     // Compare with fp
+	// Use memory operand to save load instruction
+	VPCMPEQW (SI), Y0, Y1     // Compare first 16 items
 	VPMOVMSKB Y1, CX        // Extract mask
 	TESTL   CX, CX          // Check if any set
 	JNZ     found
 
-	VMOVDQU 32(SI), Y1      // Load next 16 items
-	VPCMPEQW Y0, Y1, Y1
+	VPCMPEQW 32(SI), Y0, Y1   // Compare next 16 items
 	VPMOVMSKB Y1, CX
 	TESTL   CX, CX
 	JNZ     found
@@ -45,8 +44,7 @@ len32:
 
 len16:
 	// 16 items = 32 bytes = 1 YMM register
-	VMOVDQU (SI), Y1
-	VPCMPEQW Y0, Y1, Y1
+	VPCMPEQW (SI), Y0, Y1
 	VPMOVMSKB Y1, CX
 	TESTL   CX, CX
 	JNZ     found
@@ -54,19 +52,26 @@ len16:
 
 len8:
 	// 8 items = 16 bytes = 1 XMM register
-	VMOVDQU (SI), X1
-	VPCMPEQW X0, X1, X1     // Note: using X0 (low part of Y0) which has broadcasted fp
+	// Use X0 (low part of Y0) which has broadcasted fp
+	VPCMPEQW (SI), X0, X1
 	VPMOVMSKB X1, CX
 	TESTL   CX, CX
 	JNZ     found
 	JMP     not_found
 
 len4:
-	// 4 items = 8 bytes. Load into XMM using AVX instruction to avoid penalty
-	VPBROADCASTQ (SI), X1
+	// 4 items = 8 bytes. 
+	// Use VMOVQ to load 8 bytes into XMM register (zero extends to 128 bits)
+	// This avoids the potential penalty of partial register access or complex masking
+	VMOVQ   (SI), X1
 	VPCMPEQW X0, X1, X1
 	VPMOVMSKB X1, CX
-	// Mask out high 8 bits (corresponding to the duplicated upper half)
+	// Mask out high 8 bits (corresponding to the zero-extended part)
+	// VMOVQ zero extends, so the high bytes of X1 are 0.
+	// X0 has broadcasted fp. 
+	// If fp != 0, then 0 == fp is false, so high bits of result are 0.
+	// If fp == 0, then 0 == fp is true, so high bits of result are 1.
+	// We need to mask them out regardless to be safe, especially if searching for 0.
 	ANDL    $0xFF, CX
 	TESTL   CX, CX
 	JNZ     found
@@ -77,8 +82,7 @@ generic_loop:
 	CMPQ    BX, $16
 	JL      scalar_loop
 	
-	VMOVDQU (SI), Y1
-	VPCMPEQW Y0, Y1, Y1
+	VPCMPEQW (SI), Y0, Y1
 	VPMOVMSKB Y1, CX
 	TESTL   CX, CX
 	JNZ     found
