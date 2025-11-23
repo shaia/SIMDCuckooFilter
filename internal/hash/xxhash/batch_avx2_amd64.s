@@ -301,7 +301,7 @@ simd_chunk_loop:
     VPINSRQ $0, R9, X5, X5
 
     VPEXTRQ $1, X5, R9
-    IMULQ prime64_1(SB), R9
+    IMULQ local_prime64_1<>(SB), R9
     VPINSRQ $1, R9, X5, X5
 
     VINSERTI128 $1, X5, Y2, Y2
@@ -334,20 +334,20 @@ simd_chunk_loop:
     // Extract each 64-bit value, multiply, and reinsert
     VEXTRACTI128 $0, Y2, X4
     VPEXTRQ $0, X4, R9
-    IMULQ prime64_1(SB), R9
+    IMULQ local_prime64_1<>(SB), R9
     VPINSRQ $0, R9, X4, X4
 
     VPEXTRQ $1, X4, R9
-    IMULQ prime64_1(SB), R9
+    IMULQ local_prime64_1<>(SB), R9
     VPINSRQ $1, R9, X4, X4
 
     VEXTRACTI128 $1, Y2, X5
     VPEXTRQ $0, X5, R9
-    IMULQ prime64_1(SB), R9
+    IMULQ local_prime64_1<>(SB), R9
     VPINSRQ $0, R9, X5, X5
 
     VPEXTRQ $1, X5, R9
-    IMULQ prime64_1(SB), R9
+    IMULQ local_prime64_1<>(SB), R9
     VPINSRQ $1, R9, X5, X5
 
     VINSERTI128 $1, X5, Y2, Y2
