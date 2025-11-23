@@ -204,7 +204,7 @@ init_ok:
 
     // Process 8-byte chunks for all 4 items in parallel
     XORQ CX, CX       // CX = offset within data
-    // JMP simd_remainder // DEBUG: Skip chunk loop
+
 
 simd_chunk_loop:
     CMPQ CX, R8
