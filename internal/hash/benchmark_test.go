@@ -252,7 +252,7 @@ func BenchmarkBatchFNVHash(b *testing.B) {
 func BenchmarkGetAltIndex(b *testing.B) {
 	numBuckets := uint(1024)
 	index := uint(42)
-	fp := byte(123)
+	fp := uint16(123)
 
 	b.Run("XXHash", func(b *testing.B) {
 		xxh := xxhash.NewXXHash(8, nil)

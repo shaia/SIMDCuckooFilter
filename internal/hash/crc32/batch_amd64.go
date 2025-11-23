@@ -42,7 +42,15 @@ func (p *BatchProcessor) ProcessBatch(items [][]byte, fingerprintBits, numBucket
 			hashVal := crc32.Checksum(item, p.table)
 			fp := fingerprint(uint64(hashVal), fingerprintBits)
 			i1 := uint(hashVal % uint32(numBuckets))
-			fpHash := crc32.Checksum([]byte{fp}, p.table)
+
+			// Use 2 bytes for fingerprint hash if needed
+			fpBuf := [2]byte{byte(fp), byte(fp >> 8)}
+			len := 1
+			if fingerprintBits > 8 {
+				len = 2
+			}
+			fpHash := crc32.Checksum(fpBuf[:len], p.table)
+
 			i2 := (uint64(i1) ^ uint64(fpHash)) % uint64(numBuckets)
 			results[i] = types.HashResult{I1: i1, I2: uint(i2), Fp: fp}
 		}
@@ -78,7 +86,15 @@ func (p *BatchProcessor) ProcessBatch(items [][]byte, fingerprintBits, numBucket
 				hashVal := crc32.Checksum(item, p.table)
 				fp := fingerprint(uint64(hashVal), fingerprintBits)
 				i1 := uint(hashVal % uint32(numBuckets))
-				fpHash := crc32.Checksum([]byte{fp}, p.table)
+
+				// Use 2 bytes for fingerprint hash if needed
+				fpBuf := [2]byte{byte(fp), byte(fp >> 8)}
+				len := 1
+				if fingerprintBits > 8 {
+					len = 2
+				}
+				fpHash := crc32.Checksum(fpBuf[:len], p.table)
+
 				i2 := (uint64(i1) ^ uint64(fpHash)) % uint64(numBuckets)
 				results[i] = types.HashResult{I1: i1, I2: uint(i2), Fp: fp}
 			}

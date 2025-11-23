@@ -64,7 +64,7 @@ func NewCRC32Hash(table *crc32.Table, fingerprintBits uint, batchProcessor *Batc
 //	i1, i2, fp := crc.GetIndices([]byte("example"), 1024)
 //	// i1 and i2 are candidate buckets where the item could be stored
 //	// fp identifies the item within those buckets
-func (h *CRC32Hash) GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp byte) {
+func (h *CRC32Hash) GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp uint16) {
 	// CRC32C checksum (hardware accelerated on modern CPUs)
 	hashVal := crc32.Checksum(item, h.Table)
 
@@ -112,11 +112,18 @@ func (h *CRC32Hash) GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp by
 //	i1, _, fp := crc.GetIndices([]byte("example"), 1024)
 //	i2 := crc.GetAltIndex(i1, fp, 1024)  // Get alternative location
 //	i1Back := crc.GetAltIndex(i2, fp, 1024)  // Returns to i1 (symmetry property)
-func (h *CRC32Hash) GetAltIndex(index uint, fp byte, numBuckets uint) uint {
-	// Hash the fingerprint to get alternative index
-	// Use stack-allocated buffer for thread safety
-	fpBuf := [1]byte{fp}
-	fpHash := crc32.Checksum(fpBuf[:], h.Table)
+func (h *CRC32Hash) GetAltIndex(index uint, fp uint16, numBuckets uint) uint {
+	// Use stack-allocated buffer to avoid heap allocation
+	// We need to hash the fingerprint to get the alternative index
+	// Since fp is uint16, we need 2 bytes
+	fpBuf := [2]byte{byte(fp), byte(fp >> 8)}
+	// For 8-bit or less, we only use the first byte to maintain backward compatibility
+	// and consistency with how it was done before
+	length := 1
+	if h.FingerprintBits > 8 {
+		length = 2
+	}
+	fpHash := crc32.Checksum(fpBuf[:length], h.Table)
 	altIndex := (uint64(index) ^ uint64(fpHash)) % uint64(numBuckets)
 	return uint(altIndex)
 }
@@ -173,8 +180,8 @@ func (h *CRC32Hash) GetIndicesBatch(items [][]byte, numBuckets uint) []types.Has
 }
 
 // fingerprint extracts a fingerprint from a hash value
-func fingerprint(hashVal uint64, bits uint) byte {
-	fp := byte(hashVal & ((1 << bits) - 1))
+func fingerprint(hashVal uint64, bits uint) uint16 {
+	fp := uint16(hashVal & ((1 << bits) - 1))
 	// Ensure fingerprint is never zero (0 means empty slot)
 	if fp == 0 {
 		fp = 1

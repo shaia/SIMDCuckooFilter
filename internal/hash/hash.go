@@ -28,10 +28,10 @@ type HashResult = types.HashResult
 // HashInterface defines the interface for hash functions used in the cuckoo filter.
 type HashInterface interface {
 	// GetIndices returns the two bucket indices and fingerprint for an item
-	GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp byte)
+	GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp uint16)
 
 	// GetAltIndex calculates the alternative index given one index and fingerprint
-	GetAltIndex(index uint, fp byte, numBuckets uint) uint
+	GetAltIndex(index uint, fp uint16, numBuckets uint) uint
 
 	// GetIndicesBatch processes multiple items in batch (SIMD-optimized when available)
 	// Returns results in the same order as input items

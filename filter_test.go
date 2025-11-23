@@ -160,9 +160,9 @@ func TestInvalidOptions(t *testing.T) {
 		t.Errorf("Expected ErrInvalidFingerprintSize for 0 bits, got %v", err)
 	}
 
-	_, err = New(1000, WithFingerprintSize(9)) // Invalid: too large (max is 8)
+	_, err = New(1000, WithFingerprintSize(17)) // Invalid: too large (max is 16)
 	if err != ErrInvalidFingerprintSize {
-		t.Errorf("Expected ErrInvalidFingerprintSize for 9 bits, got %v", err)
+		t.Errorf("Expected ErrInvalidFingerprintSize for 17 bits, got %v", err)
 	}
 }
 

@@ -100,7 +100,7 @@ func TestFNVFingerprintBits(t *testing.T) {
 			}
 
 			// Verify fingerprint is within valid range
-			maxFp := byte((1 << bits) - 1)
+			maxFp := uint16((1 << bits) - 1)
 			if fp > maxFp {
 				t.Errorf("%d-bit fingerprint %d exceeds max %d", bits, fp, maxFp)
 			}
@@ -140,7 +140,7 @@ func TestFNVGetAltIndex(t *testing.T) {
 
 	testCases := []struct {
 		index uint
-		fp    byte
+		fp    uint16
 	}{
 		{0, 1},
 		{100, 255},
@@ -186,13 +186,13 @@ func TestFNVBatchProcessing(t *testing.T) {
 	// Get individual results
 	individualResults := make([]struct {
 		i1, i2 uint
-		fp     byte
+		fp     uint16
 	}, len(items))
 	for i, item := range items {
 		i1, i2, fp := h.GetIndices(item, numBuckets)
 		individualResults[i] = struct {
 			i1, i2 uint
-			fp     byte
+			fp     uint16
 		}{i1, i2, fp}
 	}
 
@@ -304,7 +304,7 @@ func TestFNVDifferentInputs(t *testing.T) {
 	}
 
 	results := make(map[uint]bool)
-	fpResults := make(map[byte]bool)
+	fpResults := make(map[uint16]bool)
 
 	for _, input := range inputs {
 		i1, _, fp := h.GetIndices(input, numBuckets)

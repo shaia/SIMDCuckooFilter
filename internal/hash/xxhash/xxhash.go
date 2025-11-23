@@ -57,17 +57,17 @@ const (
 //	i1, i2, fp := xxh.GetIndices([]byte("example"), 1024)
 //	// i1 and i2 are candidate buckets where the item could be stored
 //	// fp identifies the item within those buckets
-func (h *XXHash) GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp byte) {
+func (h *XXHash) GetIndices(item []byte, numBuckets uint) (uint, uint, uint16) {
 	hashVal := h.hash64(item)
 
 	// Extract fingerprint
-	fp = fingerprint(hashVal, h.fingerprintBits)
+	fp := fingerprint(hashVal, h.fingerprintBits)
 
 	// Calculate first index
-	i1 = uint(hashVal % uint64(numBuckets))
+	i1 := uint(hashVal % uint64(numBuckets))
 
 	// Calculate second index
-	i2 = h.GetAltIndex(i1, fp, numBuckets)
+	i2 := h.GetAltIndex(i1, fp, numBuckets)
 
 	return i1, i2, fp
 }
@@ -104,13 +104,18 @@ func (h *XXHash) GetIndices(item []byte, numBuckets uint) (i1, i2 uint, fp byte)
 //	i1, _, fp := xxh.GetIndices([]byte("example"), 1024)
 //	i2 := xxh.GetAltIndex(i1, fp, 1024)  // Get alternative location
 //	i1Back := xxh.GetAltIndex(i2, fp, 1024)  // Returns to i1 (symmetry property)
-func (h *XXHash) GetAltIndex(index uint, fp byte, numBuckets uint) uint {
-	// Hash the fingerprint to get alternative index
-	// Use stack-allocated buffer for thread safety
-	fpBuf := [1]byte{fp}
-	fpHash := h.hash64(fpBuf[:])
-	altIndex := (uint64(index) ^ fpHash) % uint64(numBuckets)
-	return uint(altIndex)
+func (h *XXHash) GetAltIndex(index uint, fp uint16, numBuckets uint) uint {
+	// 0x5bd1e995 is the MurmurHash2 constant, used here for mixing
+	// This is faster than a full hash and sufficient for alternative index
+	hash := uint64(fp) * 0x5bd1e995
+
+	// Ensure hash is non-zero modulo numBuckets (which is power of 2)
+	// by making sure it is odd. This guarantees i2 != i1 when numBuckets > 1.
+	if numBuckets > 1 {
+		hash |= 1
+	}
+
+	return uint((uint64(index) ^ hash) % uint64(numBuckets))
 }
 
 // GetIndicesBatch computes indices and fingerprints for multiple items efficiently.
@@ -205,8 +210,8 @@ func hash64XXHashGo(data []byte) uint64 {
 }
 
 // fingerprint extracts a fingerprint from a hash value
-func fingerprint(hashVal uint64, bits uint) byte {
-	fp := byte(hashVal & ((1 << bits) - 1))
+func fingerprint(hashVal uint64, bits uint) uint16 {
+	fp := uint16(hashVal & ((1 << bits) - 1))
 	// Ensure fingerprint is never zero (0 means empty slot)
 	if fp == 0 {
 		fp = 1
