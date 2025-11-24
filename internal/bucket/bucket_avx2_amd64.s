@@ -5,8 +5,8 @@
 
 // func containsAVX2(data []uint16, fp uint16) bool
 TEXT ·containsAVX2(SB), NOSPLIT, $0-33
-	MOVD    data_base+0(FP), SI    // SI = data pointer
-	MOVD    data_len+8(FP), BX     // BX = length
+	MOVQ    data_base+0(FP), SI    // SI = data pointer
+	MOVQ    data_len+8(FP), BX     // BX = length
 	MOVW    fp+24(FP), AX          // AX = fingerprint (uint16)
 
 	// Broadcast fp to YMM0
