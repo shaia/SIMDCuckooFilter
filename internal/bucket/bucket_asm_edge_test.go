@@ -245,6 +245,8 @@ func TestContainsZeroFingerprint(t *testing.T) {
 func TestAllBytesValue(t *testing.T) {
 	size := uint(8) // Use size 8 for reasonable test time
 
+	// Loop iterates through all non-zero uint16 values (1-65535).
+	// The condition target != 0 relies on uint16 overflow: 65535 + 1 wraps to 0, terminating the loop.
 	for target := uint16(1); target != 0; target++ { // 1-65535 (skip 0 as it means empty)
 		b := NewSIMDBucket(size)
 
