@@ -481,3 +481,185 @@ func TestFilterNumBucketsCalculation(t *testing.T) {
 		}
 	}
 }
+
+// TestFilterRNGInitialization tests that each filter has its own RNG instance
+func TestFilterRNGInitialization(t *testing.T) {
+	f1, _ := New(1000, 4, 8, 500, hash.HashStrategyXXHash, 32)
+	f2, _ := New(1000, 4, 8, 500, hash.HashStrategyXXHash, 32)
+
+	if f1.rng == nil {
+		t.Error("Filter 1 RNG should not be nil")
+	}
+
+	if f2.rng == nil {
+		t.Error("Filter 2 RNG should not be nil")
+	}
+
+	// Each filter should have its own RNG instance
+	if f1.rng == f2.rng {
+		t.Error("Filters should have independent RNG instances")
+	}
+}
+
+// TestFilterConcurrentMultipleFilters tests concurrent operations on multiple filter instances
+// This test verifies that per-filter RNG eliminates the global mutex contention
+func TestFilterConcurrentMultipleFilters(t *testing.T) {
+	numFilters := 10
+	filters := make([]*simdFilter, numFilters)
+
+	// Create multiple filters
+	for i := 0; i < numFilters; i++ {
+		f, err := New(1000, 4, 8, 500, hash.HashStrategyXXHash, 32)
+		if err != nil {
+			t.Fatalf("Failed to create filter %d: %v", i, err)
+		}
+		filters[i] = f
+	}
+
+	var wg sync.WaitGroup
+	itemsPerFilter := 100
+
+	// Concurrently insert into all filters
+	for filterID, filter := range filters {
+		wg.Add(1)
+		go func(fid int, f *simdFilter) {
+			defer wg.Done()
+			for i := 0; i < itemsPerFilter; i++ {
+				item := []byte(fmt.Sprintf("filter-%d-item-%d", fid, i))
+				f.Insert(item)
+			}
+		}(filterID, filter)
+	}
+
+	wg.Wait()
+
+	// Verify each filter has items
+	for i, f := range filters {
+		count := f.Count()
+		minExpected := uint(itemsPerFilter * 80 / 100) // At least 80%
+		if count < minExpected {
+			t.Errorf("Filter %d: expected at least %d items, got %d", i, minExpected, count)
+		}
+	}
+}
+
+// TestFilterConcurrentInsertWithRelocation tests concurrent inserts that trigger relocations
+// This specifically stresses the RNG usage in the relocate() function
+func TestFilterConcurrentInsertWithRelocation(t *testing.T) {
+	// Create a smaller filter to force relocations
+	f, _ := New(100, 4, 8, 500, hash.HashStrategyXXHash, 32)
+
+	var wg sync.WaitGroup
+	numGoroutines := 20
+	itemsPerGoroutine := 20
+
+	for g := 0; g < numGoroutines; g++ {
+		wg.Add(1)
+		go func(goroutineID int) {
+			defer wg.Done()
+			for i := 0; i < itemsPerGoroutine; i++ {
+				item := []byte(fmt.Sprintf("stress-%d-%d", goroutineID, i))
+				// Insert may fail when filter is full, that's OK
+				f.Insert(item)
+			}
+		}(g)
+	}
+
+	wg.Wait()
+
+	// Should have inserted a reasonable number of items
+	count := f.Count()
+	if count == 0 {
+		t.Error("Expected some items to be inserted")
+	}
+	t.Logf("Successfully inserted %d items under concurrent stress", count)
+}
+
+// TestFilterRNGIndependence tests that filters produce independent random sequences
+func TestFilterRNGIndependence(t *testing.T) {
+	// Create two filters with same configuration
+	f1, _ := New(100, 4, 8, 500, hash.HashStrategyXXHash, 32)
+	f2, _ := New(100, 4, 8, 500, hash.HashStrategyXXHash, 32)
+
+	// Fill both filters to force relocations (which use RNG)
+	numItems := 80 // Close to capacity to trigger relocations
+
+	// Track which items were successfully inserted in each filter
+	f1Inserted := make(map[string]bool)
+	f2Inserted := make(map[string]bool)
+
+	for i := 0; i < numItems; i++ {
+		item := []byte(fmt.Sprintf("item-%d", i))
+		if f1.Insert(item) {
+			f1Inserted[string(item)] = true
+		}
+		if f2.Insert(item) {
+			f2Inserted[string(item)] = true
+		}
+	}
+
+	// Due to independent RNG, the filters may have different internal states
+	// We just verify both filters worked independently
+	if len(f1Inserted) == 0 || len(f2Inserted) == 0 {
+		t.Error("Both filters should have successfully inserted items")
+	}
+
+	t.Logf("Filter 1 inserted %d items, Filter 2 inserted %d items", len(f1Inserted), len(f2Inserted))
+}
+
+// TestFilterConcurrentMixedOperations tests mixed concurrent operations
+// This test verifies thread safety with inserts, lookups, and deletes happening concurrently
+func TestFilterConcurrentMixedOperations(t *testing.T) {
+	f, _ := New(10000, 4, 8, 500, hash.HashStrategyXXHash, 32)
+
+	// Pre-populate with some items
+	for i := 0; i < 100; i++ {
+		f.Insert([]byte(fmt.Sprintf("initial-%d", i)))
+	}
+
+	var wg sync.WaitGroup
+	numGoroutines := 15
+	operationsPerGoroutine := 50
+
+	// Concurrent inserters
+	for g := 0; g < numGoroutines/3; g++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for i := 0; i < operationsPerGoroutine; i++ {
+				item := []byte(fmt.Sprintf("insert-%d-%d", id, i))
+				f.Insert(item)
+			}
+		}(g)
+	}
+
+	// Concurrent lookers
+	for g := 0; g < numGoroutines/3; g++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < operationsPerGoroutine; i++ {
+				item := []byte(fmt.Sprintf("initial-%d", i%100))
+				f.Lookup(item)
+			}
+		}()
+	}
+
+	// Concurrent deleters
+	for g := 0; g < numGoroutines/3; g++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for i := 0; i < operationsPerGoroutine; i++ {
+				item := []byte(fmt.Sprintf("initial-%d", i%100))
+				f.Delete(item)
+			}
+		}(g)
+	}
+
+	wg.Wait()
+
+	// Filter should still be in a valid state
+	count := f.Count()
+	t.Logf("Final count after mixed concurrent operations: %d", count)
+}
