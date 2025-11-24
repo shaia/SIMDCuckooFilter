@@ -7,6 +7,7 @@
 .PHONY: coverage coverage-html
 .PHONY: vet fmt check-fmt lint
 .PHONY: clean clean-all ci pre-commit
+.PHONY: version version-info check-version tag release-prep
 
 # Default target - run standard checks
 all: fmt vet test
@@ -51,6 +52,13 @@ help:
 	@echo "Platform-specific tests:"
 	@echo "  test-amd64     - Run tests with GOARCH=amd64"
 	@echo "  test-arm64     - Run tests with GOARCH=arm64"
+	@echo ""
+	@echo "Version management:"
+	@echo "  version        - Display current version"
+	@echo "  version-info   - Display detailed version information"
+	@echo "  check-version  - Verify version consistency"
+	@echo "  release-prep   - Run all pre-release checks"
+	@echo "  tag            - Create and push git tag (requires VERSION env var)"
 
 # Build targets
 build:
@@ -180,3 +188,68 @@ ci: check-fmt vet test coverage
 # Quick check before commit
 pre-commit: fmt vet test-short
 	@echo "Pre-commit checks passed"
+
+# Version management targets
+version:
+	@echo "SIMDCuckooFilter version:"
+	@grep 'Version = "v' version.go | head -1 | awk -F'"' '{print $$2}'
+
+version-info:
+	@echo "Version Information:"
+	@echo "==================="
+	@grep 'Major = ' version.go | head -1
+	@grep 'Minor = ' version.go | head -1
+	@grep 'Patch = ' version.go | head -1
+	@grep 'Version = "v' version.go | head -1
+	@grep 'PreRelease = ' version.go | head -1
+	@grep 'BuildMetadata = ' version.go | head -1
+
+check-version:
+	@echo "Checking version consistency..."
+	@MAJOR=$$(grep 'Major = ' version.go | head -1 | awk '{print $$3}'); \
+	MINOR=$$(grep 'Minor = ' version.go | head -1 | awk '{print $$3}'); \
+	PATCH=$$(grep 'Patch = ' version.go | head -1 | awk '{print $$3}'); \
+	VERSION=$$(grep 'Version = "v' version.go | head -1 | awk -F'"' '{print $$2}'); \
+	EXPECTED="v$$MAJOR.$$MINOR.$$PATCH"; \
+	if [ "$$VERSION" != "$$EXPECTED" ]; then \
+		echo "Error: Version string '$$VERSION' does not match Major.Minor.Patch '$$EXPECTED'"; \
+		exit 1; \
+	fi; \
+	echo "✓ Version consistency check passed: $$VERSION"
+
+release-prep: check-version check-fmt vet test test-race coverage
+	@echo ""
+	@echo "================================"
+	@echo "Release Preparation Complete!"
+	@echo "================================"
+	@echo ""
+	@echo "Current version: $$(grep 'Version = "v' version.go | head -1 | awk -F'"' '{print $$2}')"
+	@echo ""
+	@echo "Next steps:"
+	@echo "1. Update CHANGELOG.md with release notes"
+	@echo "2. Commit changes: git commit -m 'chore: prepare release vX.Y.Z'"
+	@echo "3. Create PR and get approval"
+	@echo "4. After merge, create tag: make tag VERSION=vX.Y.Z"
+	@echo ""
+	@echo "See PUBLISHING.md for detailed instructions"
+
+tag:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION not specified. Usage: make tag VERSION=v0.1.0"; \
+		exit 1; \
+	fi; \
+	if ! echo "$(VERSION)" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$$'; then \
+		echo "Error: Invalid version format. Expected format: vX.Y.Z (e.g., v0.1.0)"; \
+		exit 1; \
+	fi; \
+	echo "Creating tag $(VERSION)..."; \
+	if git rev-parse "$(VERSION)" >/dev/null 2>&1; then \
+		echo "Error: Tag $(VERSION) already exists!"; \
+		echo "To delete: git tag -d $(VERSION) && git push origin :refs/tags/$(VERSION)"; \
+		exit 1; \
+	fi; \
+	git tag -a "$(VERSION)" -m "Release $(VERSION)"; \
+	echo "Tag $(VERSION) created successfully!"; \
+	echo ""; \
+	echo "To push the tag, run: git push origin $(VERSION)"; \
+	echo "Or to push all tags: git push origin --tags"
