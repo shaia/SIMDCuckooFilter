@@ -3,7 +3,7 @@
 package filter
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 
 	"github.com/shaia/simdcuckoofilter/internal/bucket"
@@ -19,6 +19,7 @@ type simdFilter struct {
 	bucketSize uint
 	hash       hash.HashInterface
 	batchSize  uint
+	rng        *rand.Rand // Per-filter RNG for thread-safe random operations
 	mu         sync.RWMutex
 }
 
@@ -43,6 +44,7 @@ func New(capacity, bucketSize, fingerprintBits, maxKicks uint, hashStrategy hash
 		bucketSize: bucketSize,
 		hash:       hash.NewHashFunction(hashStrategy, fingerprintBits),
 		batchSize:  batchSize,
+		rng:        rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
 	}, nil
 }
 
@@ -71,7 +73,7 @@ func (f *simdFilter) Insert(item []byte) bool {
 func (f *simdFilter) relocate(i1, i2 uint, fp uint16) bool {
 	// Start from random bucket
 	index := i1
-	if rand.Intn(2) == 1 {
+	if f.rng.IntN(2) == 1 {
 		index = i2
 	}
 
@@ -79,7 +81,7 @@ func (f *simdFilter) relocate(i1, i2 uint, fp uint16) bool {
 
 	for i := uint(0); i < f.maxKicks; i++ {
 		// Randomly select a position in the bucket (standard cuckoo hashing)
-		pos := uint(rand.Intn(int(f.bucketSize)))
+		pos := uint(f.rng.IntN(int(f.bucketSize)))
 
 		// Swap the fingerprint at the random position
 		oldFp := f.buckets[index].Swap(pos, currentFp)
