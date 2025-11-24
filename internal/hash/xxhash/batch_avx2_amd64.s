@@ -1,5 +1,9 @@
-//go:build amd64
-// +build amd64
+//go:build amd64 && unused
+// +build amd64,unused
+
+// NOTE: This file is currently disabled because processBatchXXHashAVX2 is not used.
+// The Go declaration is commented out in batch_amd64.go.
+// To enable, uncomment the function declaration and remove the "unused" build tag.
 
 #include "textflag.h"
 
