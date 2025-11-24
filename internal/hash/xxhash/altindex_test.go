@@ -146,6 +146,8 @@ func TestSingleByteFingerprintHashing(t *testing.T) {
 
 	// Test all possible fingerprint values (1-65535, since 0 is never used)
 	failureCount := 0
+	// Loop iterates through all non-zero uint16 values (1-65535).
+	// The condition fp != 0 relies on uint16 overflow: 65535 + 1 wraps to 0, terminating the loop.
 	for fp := uint16(1); fp != 0; fp++ {
 		// Hash the fingerprint using the XXHash method
 		var fpBuf [2]byte
