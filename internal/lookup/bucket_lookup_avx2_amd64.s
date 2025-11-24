@@ -3,7 +3,7 @@
 #include "textflag.h"
 
 // func bucketLookupAVX2(fingerprints []byte, target byte) bool
-TEXT ·bucketLookupAVX2(SB), NOSPLIT, $0-40
+TEXT ·bucketLookupAVX2(SB), NOSPLIT, $0-33
     MOVQ    fingerprints_base+0(FP), AX  // AX = pointer to fingerprints
     MOVQ    fingerprints_len+8(FP), CX   // CX = length
     MOVBQZX target+24(FP), DX            // DX = target fingerprint
