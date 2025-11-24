@@ -13,7 +13,7 @@ func TestSIMDBucketContains(t *testing.T) {
 			b := NewSIMDBucket(size)
 
 			// Insert some fingerprints
-			testFPs := []byte{10, 20, 30, 40}
+			testFPs := []uint16{10, 20, 30, 40}
 			for i := uint(0); i < size && i < uint(len(testFPs)); i++ {
 				b.Insert(testFPs[i])
 			}
@@ -31,9 +31,9 @@ func TestSIMDBucketContains(t *testing.T) {
 			}
 
 			// Verify SIMD and scalar give same results
-			for fp := byte(0); fp < 255; fp++ {
-				simdResult := b.ContainsSIMD(fp)
-				scalarResult := b.Contains(fp)
+			for fp := 0; fp < 255; fp++ {
+				simdResult := b.ContainsSIMD(uint16(fp))
+				scalarResult := b.Contains(uint16(fp))
 				if simdResult != scalarResult {
 					t.Errorf("ContainsSIMD(%d) = %v, Contains(%d) = %v", fp, simdResult, fp, scalarResult)
 				}
@@ -56,7 +56,7 @@ func TestSIMDBucketIsFull(t *testing.T) {
 
 			// Fill bucket
 			for i := uint(0); i < size; i++ {
-				b.Insert(byte(i + 1))
+				b.Insert(uint16(i + 1))
 			}
 
 			// Now should be full
@@ -84,7 +84,7 @@ func TestSIMDBucketCount(t *testing.T) {
 				if b.CountSIMD() != i {
 					t.Errorf("CountSIMD() = %d, want %d", b.CountSIMD(), i)
 				}
-				b.Insert(byte(i + 1))
+				b.Insert(uint16(i + 1))
 			}
 
 			// Verify final count
@@ -117,7 +117,7 @@ func TestSIMDBucketFindFirstZero(t *testing.T) {
 				if idx := b.FindFirstZeroSIMD(); idx != i {
 					t.Errorf("FindFirstZeroSIMD() = %d, want %d", idx, i)
 				}
-				b.Insert(byte(i + 1))
+				b.Insert(uint16(i + 1))
 			}
 
 			// When full, should return size
@@ -137,7 +137,7 @@ func TestSIMDBucketInsertSIMD(t *testing.T) {
 
 			// Insert until full
 			for i := uint(0); i < size; i++ {
-				if !b.InsertSIMD(byte(i + 1)) {
+				if !b.InsertSIMD(uint16(i + 1)) {
 					t.Errorf("InsertSIMD(%d) = false, want true", i+1)
 				}
 			}
@@ -149,7 +149,7 @@ func TestSIMDBucketInsertSIMD(t *testing.T) {
 
 			// Verify all items are present
 			for i := uint(0); i < size; i++ {
-				if !b.Contains(byte(i + 1)) {
+				if !b.Contains(uint16(i + 1)) {
 					t.Errorf("Contains(%d) = false after InsertSIMD, want true", i+1)
 				}
 			}
@@ -166,9 +166,9 @@ func BenchmarkBucketContains(b *testing.B) {
 		// Setup bucket
 		bucket := NewSIMDBucket(size)
 		for i := uint(0); i < size; i++ {
-			bucket.Insert(byte(i + 1))
+			bucket.Insert(uint16(i + 1))
 		}
-		fp := byte(size / 2) // Middle fingerprint
+		fp := uint16(size / 2) // Middle fingerprint
 
 		b.Run(fmt.Sprintf("Scalar/Size%d", size), func(b *testing.B) {
 			b.ReportAllocs()
@@ -193,7 +193,7 @@ func BenchmarkBucketIsFull(b *testing.B) {
 	for _, size := range sizes {
 		bucket := NewSIMDBucket(size)
 		for i := uint(0); i < size; i++ {
-			bucket.Insert(byte(i + 1))
+			bucket.Insert(uint16(i + 1))
 		}
 
 		b.Run(fmt.Sprintf("Scalar/Size%d", size), func(b *testing.B) {
@@ -219,7 +219,7 @@ func BenchmarkBucketCount(b *testing.B) {
 	for _, size := range sizes {
 		bucket := NewSIMDBucket(size)
 		for i := uint(0); i < size-1; i++ { // Leave one empty
-			bucket.Insert(byte(i + 1))
+			bucket.Insert(uint16(i + 1))
 		}
 
 		b.Run(fmt.Sprintf("Scalar/Size%d", size), func(b *testing.B) {
@@ -246,7 +246,7 @@ func BenchmarkBucketFindFirstZero(b *testing.B) {
 		bucket := NewSIMDBucket(size)
 		// Fill half the bucket
 		for i := uint(0); i < size/2; i++ {
-			bucket.Insert(byte(i + 1))
+			bucket.Insert(uint16(i + 1))
 		}
 
 		b.Run(fmt.Sprintf("FindFirstZero/Size%d", size), func(b *testing.B) {

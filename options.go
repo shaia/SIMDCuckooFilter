@@ -33,9 +33,8 @@ func (o *Options) Validate() error {
 		o.bucketSize != 16 && o.bucketSize != 32 && o.bucketSize != 64 {
 		return ErrInvalidBucketSize
 	}
-	// Fingerprints are stored as bytes (uint8), so only 1-8 bits are supported
-	// The implementation uses byte arrays for fingerprints throughout the bucket and SIMD operations
-	if o.fingerprintBits < 1 || o.fingerprintBits > 8 {
+	// Fingerprints are stored as uint16, so 1-16 bits are supported
+	if o.fingerprintBits < 1 || o.fingerprintBits > 16 {
 		return ErrInvalidFingerprintSize
 	}
 	return nil
@@ -50,9 +49,9 @@ func WithBucketSize(size uint) Option {
 	}
 }
 
-// WithFingerprintSize sets the fingerprint size in bits (1-8)
-// Fingerprints are stored as bytes, so the maximum is 8 bits.
-// Common values: 4 (very compact), 8 (recommended for good false positive rate)
+// WithFingerprintSize sets the fingerprint size in bits (1-16)
+// Fingerprints are stored as uint16, so the maximum is 16 bits.
+// Common values: 8 (standard), 12 (low false positive), 16 (very low false positive)
 func WithFingerprintSize(bits uint) Option {
 	return func(o *Options) {
 		o.fingerprintBits = bits

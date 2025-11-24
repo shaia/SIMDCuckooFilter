@@ -82,7 +82,7 @@ func TestContainsLastPosition(t *testing.T) {
 			b := NewSIMDBucket(size)
 			// Fill with non-matching values except last
 			for i := uint(0); i < size-1; i++ {
-				b.fingerprints[i] = byte(i + 1)
+				b.fingerprints[i] = uint16(i + 1)
 			}
 			b.fingerprints[size-1] = 123 // Put target in last position
 
@@ -166,7 +166,7 @@ func TestFindFirstZeroAtEnd(t *testing.T) {
 			b := NewSIMDBucket(size)
 			// Fill all but last
 			for i := uint(0); i < size-1; i++ {
-				b.fingerprints[i] = byte(i + 1)
+				b.fingerprints[i] = uint16(i + 1)
 			}
 			// Last position is 0
 
@@ -187,7 +187,7 @@ func TestFindFirstZeroNone(t *testing.T) {
 			b := NewSIMDBucket(size)
 			// Fill completely with non-zero values
 			for i := uint(0); i < size; i++ {
-				b.fingerprints[i] = byte(i + 1)
+				b.fingerprints[i] = uint16(i + 1)
 			}
 
 			idx := b.FindFirstZeroSIMD()
@@ -217,7 +217,7 @@ func TestContainsZeroFingerprint(t *testing.T) {
 
 			// Explicitly set a position to 0
 			for i := uint(0); i < size; i++ {
-				b.fingerprints[i] = byte(i + 1)
+				b.fingerprints[i] = uint16(i + 1)
 			}
 			b.fingerprints[0] = 0
 
@@ -229,7 +229,7 @@ func TestContainsZeroFingerprint(t *testing.T) {
 
 			// No zeros - should not find 0
 			for i := uint(0); i < size; i++ {
-				b.fingerprints[i] = byte(i + 1)
+				b.fingerprints[i] = uint16(i + 1)
 			}
 
 			simdResult = b.ContainsSIMD(0)
@@ -245,7 +245,9 @@ func TestContainsZeroFingerprint(t *testing.T) {
 func TestAllBytesValue(t *testing.T) {
 	size := uint(8) // Use size 8 for reasonable test time
 
-	for target := byte(1); target != 0; target++ { // 1-255 (skip 0 as it means empty)
+	// Loop iterates through all non-zero uint16 values (1-65535).
+	// The condition target != 0 relies on uint16 overflow: 65535 + 1 wraps to 0, terminating the loop.
+	for target := uint16(1); target != 0; target++ { // 1-65535 (skip 0 as it means empty)
 		b := NewSIMDBucket(size)
 
 		// Test not found case
@@ -271,12 +273,12 @@ func TestIsFullBoundaryValues(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			b := NewSIMDBucket(size)
 
-			// Pattern: 0xFF (all bits set)
+			// Pattern: 0xFFFF (all bits set)
 			for i := uint(0); i < size; i++ {
-				b.fingerprints[i] = 0xFF
+				b.fingerprints[i] = 0xFFFF
 			}
 			if !b.IsFullSIMD() {
-				t.Errorf("Bucket filled with 0xFF not detected as full (size %d)", size)
+				t.Errorf("Bucket filled with 0xFFFF not detected as full (size %d)", size)
 			}
 
 			// Pattern: 0x01 (minimal non-zero)
@@ -290,9 +292,9 @@ func TestIsFullBoundaryValues(t *testing.T) {
 			// Pattern: alternating high/low
 			for i := uint(0); i < size; i++ {
 				if i%2 == 0 {
-					b.fingerprints[i] = 0xAA
+					b.fingerprints[i] = 0xAAAA
 				} else {
-					b.fingerprints[i] = 0x55
+					b.fingerprints[i] = 0x5555
 				}
 			}
 			if !b.IsFullSIMD() {
@@ -308,22 +310,22 @@ func TestCountBoundaryValues(t *testing.T) {
 
 	testCases := []struct {
 		name     string
-		pattern  func(uint) byte
+		pattern  func(uint) uint16
 		expected uint
 	}{
 		{
 			name:     "all_ones",
-			pattern:  func(i uint) byte { return 1 },
+			pattern:  func(i uint) uint16 { return 1 },
 			expected: size,
 		},
 		{
 			name:     "all_max",
-			pattern:  func(i uint) byte { return 0xFF },
+			pattern:  func(i uint) uint16 { return 0xFFFF },
 			expected: size,
 		},
 		{
 			name: "alternating_zero_one",
-			pattern: func(i uint) byte {
+			pattern: func(i uint) uint16 {
 				if i%2 == 0 {
 					return 0
 				} else {
@@ -334,7 +336,7 @@ func TestCountBoundaryValues(t *testing.T) {
 		},
 		{
 			name: "first_half_filled",
-			pattern: func(i uint) byte {
+			pattern: func(i uint) uint16 {
 				if i < size/2 {
 					return 1
 				} else {
@@ -345,7 +347,7 @@ func TestCountBoundaryValues(t *testing.T) {
 		},
 		{
 			name: "last_half_filled",
-			pattern: func(i uint) byte {
+			pattern: func(i uint) uint16 {
 				if i >= size/2 {
 					return 1
 				} else {
@@ -384,8 +386,8 @@ func TestReturnValueConsistency(t *testing.T) {
 
 	// Test ContainsSIMD return values
 	for i := 0; i < 1000; i++ {
-		b.fingerprints[0] = byte(i % 256)
-		target := byte(i % 256)
+		b.fingerprints[0] = uint16(i % 65536)
+		target := uint16(i % 65536)
 
 		result := b.ContainsSIMD(target)
 		expected := b.Contains(target)
@@ -403,7 +405,7 @@ func TestReturnValueConsistency(t *testing.T) {
 			b.fingerprints[j] = 0
 		}
 		for j := uint(0); j < i; j++ {
-			b.fingerprints[j] = byte(j + 1)
+			b.fingerprints[j] = uint16(j + 1)
 		}
 
 		result := b.IsFullSIMD()
@@ -431,11 +433,11 @@ func TestRegisterClobbering(t *testing.T) {
 
 			// Fill with pseudo-random pattern
 			for i := uint(0); i < size; i++ {
-				b.fingerprints[i] = byte((iter*7 + int(i)*13) % 256)
+				b.fingerprints[i] = uint16((iter*7 + int(i)*13) % 65536)
 			}
 
 			// Test all operations
-			target := byte((iter * 3) % 256)
+			target := uint16((iter * 3) % 65536)
 
 			simdContains := b.ContainsSIMD(target)
 			scalarContains := b.Contains(target)
