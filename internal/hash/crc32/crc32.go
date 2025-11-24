@@ -119,11 +119,11 @@ func (h *CRC32Hash) GetAltIndex(index uint, fp uint16, numBuckets uint) uint {
 	fpBuf := [2]byte{byte(fp), byte(fp >> 8)}
 	// For 8-bit or less, we only use the first byte to maintain backward compatibility
 	// and consistency with how it was done before
-	len := 1
+	length := 1
 	if h.FingerprintBits > 8 {
-		len = 2
+		length = 2
 	}
-	fpHash := crc32.Checksum(fpBuf[:len], h.Table)
+	fpHash := crc32.Checksum(fpBuf[:length], h.Table)
 	altIndex := (uint64(index) ^ uint64(fpHash)) % uint64(numBuckets)
 	return uint(altIndex)
 }
