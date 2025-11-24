@@ -56,8 +56,7 @@ DATA avx2_shift_27<>+16(SB)/8, $27
 DATA avx2_shift_27<>+24(SB)/8, $27
 GLOBL avx2_shift_27<>(SB), RODATA, $32
 
-DATA avx2_shift_37<>+0(SB)/8, $37
-DATA avx2_shift_37<>+8(SB)/8, $37
+
 
 // Local scalar constants to avoid linkage issues
 DATA local_prime64_1<>+0(SB)/8, $11400714785074694791
@@ -70,9 +69,7 @@ DATA local_prime64_4<>+0(SB)/8, $9650029242287828579
 GLOBL local_prime64_4<>(SB), RODATA|NOPTR, $8
 DATA local_prime64_5<>+0(SB)/8, $2870177450012600261
 GLOBL local_prime64_5<>(SB), RODATA|NOPTR, $8
-DATA avx2_shift_37<>+16(SB)/8, $37
-DATA avx2_shift_37<>+24(SB)/8, $37
-GLOBL avx2_shift_37<>(SB), RODATA, $32
+
 
 // processBatchXXHashAVX2 computes XXHash64 for multiple items in batch using AVX2
 // Processes 4 items in parallel using 256-bit SIMD registers
