@@ -37,7 +37,7 @@ jobs:
           exit 1
         fi
 
-  # Run go vet (allow to fail due to known assembly issues)
+  # Run go vet
   vet:
     name: Go Vet
     runs-on: ubuntu-latest
@@ -53,7 +53,6 @@ jobs:
 
     - name: Run go vet
       run: go vet ./...
-      continue-on-error: true
 
   # Run tests on multiple platforms
   test:
@@ -81,7 +80,6 @@ jobs:
 
     - name: Run tests
       run: go test -v -race -count=1 ./...
-      continue-on-error: true  # Allow failures due to known assembly bugs
 
     - name: Generate coverage
       if: matrix.os == 'ubuntu-latest'
@@ -224,7 +222,7 @@ jobs:
         go install golang.org/x/vuln/cmd/govulncheck@latest
         govulncheck ./...
 
-  # All checks must pass (Windows tests allowed to fail)
+  # All checks must pass
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
@@ -242,37 +240,64 @@ jobs:
     - name: Check required jobs
       run: |
         # Check if any required job failed
+        echo "Checking CI job results..."
+        echo "format-check: ${{ needs.format-check.result }}"
+        echo "vet: ${{ needs.vet.result }}"
+        echo "test: ${{ needs.test.result }}"
+        echo "test-arm64: ${{ needs.test-arm64.result }}"
+        echo "lint: ${{ needs.lint.result }}"
+        echo "build-matrix: ${{ needs.build-matrix.result }}"
+        echo "verify-assembly: ${{ needs.verify-assembly.result }}"
+        echo "security: ${{ needs.security.result }}"
+        echo ""
+
+        FAILED=0
+
         if [ "${{ needs.format-check.result }}" != "success" ]; then
-          echo "Format check failed"
-          exit 1
+          echo "❌ Format check failed or was skipped"
+          FAILED=1
         fi
-        # Vet allowed to fail due to known assembly issues
-        if [ "${{ needs.vet.result }}" != "success" ] && [ "${{ needs.vet.result }}" != "failure" ]; then
-          echo "Vet check did not complete"
-          exit 1
+
+        if [ "${{ needs.vet.result }}" != "success" ]; then
+          echo "❌ Vet check failed or was skipped"
+          FAILED=1
         fi
+
         if [ "${{ needs.test.result }}" != "success" ]; then
-          echo "Tests failed"
-          exit 1
+          echo "❌ Tests failed or were skipped"
+          FAILED=1
         fi
+
         if [ "${{ needs.test-arm64.result }}" != "success" ]; then
-          echo "ARM64 tests failed"
-          exit 1
+          echo "❌ ARM64 tests failed or were skipped"
+          FAILED=1
         fi
+
         if [ "${{ needs.lint.result }}" != "success" ]; then
-          echo "Lint failed"
-          exit 1
+          echo "❌ Lint failed or was skipped"
+          FAILED=1
         fi
+
         if [ "${{ needs.build-matrix.result }}" != "success" ]; then
-          echo "Build matrix failed"
-          exit 1
+          echo "❌ Build matrix failed or was skipped"
+          FAILED=1
         fi
+
         if [ "${{ needs.verify-assembly.result }}" != "success" ]; then
-          echo "Assembly verification failed"
-          exit 1
+          echo "❌ Assembly verification failed or was skipped"
+          FAILED=1
         fi
+
         if [ "${{ needs.security.result }}" != "success" ]; then
-          echo "Security scan failed"
+          echo "❌ Security scan failed or was skipped"
+          FAILED=1
+        fi
+
+        if [ $FAILED -eq 1 ]; then
+          echo ""
+          echo "❌ CI checks failed!"
           exit 1
         fi
-        echo "All CI checks passed!"
+
+        echo ""
+        echo "✅ All CI checks passed!"
