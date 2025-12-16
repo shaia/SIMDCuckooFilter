@@ -79,7 +79,7 @@ GLOBL local_prime64_5<>(SB), RODATA|NOPTR, $8
 // Processes 4 items in parallel using 256-bit SIMD registers
 // func processBatchXXHashAVX2(items [][]byte, results []HashResult, fingerprintBits, numBuckets uint)
 // Stack frame must be 16-byte aligned for AVX2 operations
-TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $144-64
+TEXT ·processBatchXXHashAVX2(SB), $144-64
     // Load arguments
     MOVQ items_base+0(FP), DI        // DI = items slice base
     MOVQ items_len+8(FP), SI         // SI = number of items
@@ -107,22 +107,6 @@ TEXT ·processBatchXXHashAVX2(SB), NOSPLIT, $144-64
     // Check if we can process 4 items in parallel
     MOVQ SI, R15
     SUBQ $4, R15
-    // TODO(fix): AVX2 SIMD path is currently broken on Windows - crashes when loading
-    // item pointers from stack. Issue appears to be related to stack frame corruption
-    // or incorrect addressing. Scalar fallback works correctly.
-    //
-    // The crash occurs at line 180 when trying to load item data pointers from stack
-    // offsets 32(SP), 48(SP), 64(SP), 80(SP). The loaded values are garbage
-    // (e.g., 0xc0000f8000) instead of the valid pointers that were stored earlier.
-    //
-    // Possible causes:
-    // - Stack frame corruption between store and load
-    // - Incorrect stack addressing with NOSPLIT on Windows
-    // - AVX2 operations corrupting stack
-    // - Issue with how slice data is being loaded from items parameter
-    //
-    // For now, force scalar path until this can be debugged properly with a debugger.
-    // JMP  scalar_loop  // Force scalar path (TEMPORARY - see TODO above)
     JL   scalar_loop  // If items < 4, use scalar
 
 // Process 4 items in parallel using AVX2
@@ -149,30 +133,39 @@ simd_loop:
     // Load item 0
     MOVQ 0(BX), R8    // data ptr
     MOVQ 8(BX), R9    // length
+<<<<<<< Updated upstream
     MOVQ R8, R13   // item0 data ptr (kept in register)
     MOVQ R9, R14   // item0 length (kept in register)
+=======
+    VPINSRQ $0, R8, X14, X14
+    VPINSRQ $0, R9, X15, X15
+>>>>>>> Stashed changes
 
     // Load item 1
     MOVQ 24(BX), R8   // data ptr
     MOVQ 32(BX), R9   // length
-    MOVQ R8, 48(SP)   // item1 data ptr
-    MOVQ R9, 56(SP)   // item1 length
+    VPINSRQ $1, R8, X14, X14
+    VPINSRQ $1, R9, X15, X15
 
     // Load item 2
     MOVQ 48(BX), R8   // data ptr
     MOVQ 56(BX), R9   // length
-    MOVQ R8, 64(SP)   // item2 data ptr
-    MOVQ R9, 72(SP)   // item2 length
+    VPINSRQ $0, R8, X12, X12
+    VPINSRQ $0, R9, X13, X13
 
     // Load item 3
     MOVQ 72(BX), R8   // data ptr
     MOVQ 80(BX), R9   // length
-    MOVQ R8, 80(SP)   // item3 data ptr
-    MOVQ R9, 88(SP)   // item3 length
+    VPINSRQ $1, R8, X12, X12
+    VPINSRQ $1, R9, X13, X13
+
+    VINSERTI128 $1, X12, Y14, Y14  // Y14 = [ptr0, ptr1, ptr2, ptr3]
+    VINSERTI128 $1, X13, Y15, Y15  // Y15 = [len0, len1, len2, len3]
 
 init_ok:
 
     // Initialize hash vector: prime64_5 + length for each item
+<<<<<<< Updated upstream
     // Load lengths individually and construct YMM register
     MOVQ R14, R8   // len0
     MOVQ 56(SP), R9   // len1
@@ -192,12 +185,21 @@ init_ok:
     // Find minimum length for aligned processing
     MOVQ R14, R8 // Use R14 (len0) as initial min
     MOVQ 56(SP), R9
+=======
+    VPADDQ Y15, Y0, Y1              // Y1 = prime64_5 + len for each item
+
+    // Find minimum length for aligned processing
+    VPEXTRQ $0, X15, R8   // len0
+    VPEXTRQ $1, X15, R9   // len1
+>>>>>>> Stashed changes
     CMPQ R9, R8
     CMOVQLT R9, R8
-    MOVQ 72(SP), R9
+    
+    VEXTRACTI128 $1, Y15, X13
+    VPEXTRQ $0, X13, R9   // len2
     CMPQ R9, R8
     CMOVQLT R9, R8
-    MOVQ 88(SP), R9
+    VPEXTRQ $1, X13, R9   // len3
     CMPQ R9, R8
     CMOVQLT R9, R8    // R8 = min length
 
@@ -217,19 +219,28 @@ simd_chunk_loop:
     JL   simd_remainder
 
     // Load 4x 8-byte values from each item
+<<<<<<< Updated upstream
     MOVQ R13, BX
+=======
+    // Item 0
+    VPEXTRQ $0, X14, BX
+>>>>>>> Stashed changes
     MOVQ (BX)(CX*1), R9
     VPINSRQ $0, R9, X2, X2
 
-    MOVQ 48(SP), BX
+    // Item 1
+    VPEXTRQ $1, X14, BX
     MOVQ (BX)(CX*1), R9
     VPINSRQ $1, R9, X2, X2
 
-    MOVQ 64(SP), BX
+    // Item 2
+    VEXTRACTI128 $1, Y14, X13
+    VPEXTRQ $0, X13, BX
     MOVQ (BX)(CX*1), R9
     VPINSRQ $0, R9, X3, X3
 
-    MOVQ 80(SP), BX
+    // Item 3
+    VPEXTRQ $1, X13, BX
     MOVQ (BX)(CX*1), R9
     VPINSRQ $1, R9, X3, X3
 
